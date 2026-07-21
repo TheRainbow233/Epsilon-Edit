@@ -486,6 +486,16 @@
         },
         "swing hand": "挥手"
       },
+      "auto rod": {
+        "_value": "自动鱼竿",
+        "range": "范围",
+        "hit timeout": "命中超时",
+        "pull on out of range": "出范围收杆",
+        "cooldown min": "冷却最小",
+        "cooldown max": "冷却最大",
+        "chance": "概率",
+        "swing hand": "挥手"
+      },
       "auto projectile": {
         "_value": "自动投掷",
         "target mode": {
@@ -764,6 +774,25 @@
         "swap back delay": "切换回原槽位延迟",
         "rotation speed": "旋转速度"
       },
+      "fake lag": {
+        "_value": "假延迟",
+        "mode": {
+          "_value": "模式",
+          "constant": "恒定",
+          "dynamic": "动态"
+        },
+        "range": "范围",
+        "delay min": "最小延迟",
+        "delay max": "最大延迟",
+        "recoil time": "冷却时间",
+        "flush on": {
+          "_value": "立即释放",
+          "entityinteract": "实体交互",
+          "blockinteract": "方块交互",
+          "action": "破坏动作"
+        },
+        "pause on use": "使用时暂停"
+      },
       "feet trap": {
         "_value": "围脚",
         "toggle on move": "移动时关闭",
@@ -967,6 +996,26 @@
         "auto break": "自动破坏",
         "auto place": "自动放置",
         "anti suicide": "防自杀"
+      },
+      "super knockback": {
+        "_value": "超级击退",
+        "mode": {
+          "_value": "模式",
+          "packet": "发包",
+          "sprinttap": "冲刺松放"
+        },
+        "hurt time": "受伤时间",
+        "chance": "概率",
+        "conditions": {
+          "_value": "条件",
+          "onlyfacing": "仅背对",
+          "onlyonground": "仅地面",
+          "notinwater": "不在水中"
+        },
+        "only on move": "仅移动时",
+        "only forward": "仅前进",
+        "resprint min": "恢复冲刺最小",
+        "resprint max": "恢复冲刺最大"
       },
       "silent aim": {
         "_value": "静默瞄准",
@@ -1198,7 +1247,14 @@
       },
       "use cooldown": {
         "_value": "使用冷却",
-        "cooldown": "冷却时间"
+        "cooldown": "冷却时间",
+        "apply to": {
+          "_value": "应用于",
+          "blocks": "方块",
+          "projectiles": "投掷物",
+          "both": "全部"
+        },
+        "start delay": "启动延迟"
       },
       "auto queue": {
         "_value": "自动排队",

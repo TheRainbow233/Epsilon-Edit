@@ -51,6 +51,7 @@ public class ModuleHolder {
         addModule(AutoHitCrystal.INSTANCE);
         addModule(AutoMend.INSTANCE);
         addModule(AutoProjectile.INSTANCE);
+        addModule(AutoRod.INSTANCE);
         addModule(AutoTotem.INSTANCE);
         addModule(Backtrack.INSTANCE);
         addModule(AutoWeapon.INSTANCE);
@@ -60,6 +61,7 @@ public class ModuleHolder {
         addModule(CrystalBlocker.INSTANCE);
         addModule(FeetTrap.INSTANCE);
         addModule(DoubleAnchor.INSTANCE);
+        addModule(FakeLag.INSTANCE);
         addModule(HoverTotem.INSTANCE);
         addModule(KillAura.INSTANCE);
         addModule(KeyPearl.INSTANCE);
@@ -68,6 +70,7 @@ public class ModuleHolder {
         addModule(SafeAnchor.INSTANCE);
         addModule(SafeCrystal.INSTANCE);
         addModule(SilentAim.INSTANCE);
+        addModule(SuperKnockback.INSTANCE);
         addModule(SpearKill.INSTANCE);
         addModule(TriggerBot.INSTANCE);
 

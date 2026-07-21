@@ -464,6 +464,16 @@
         },
         "swing hand": "Swing Hand"
       },
+      "auto rod": {
+        "_value": "Auto Rod",
+        "range": "Range",
+        "hit timeout": "Hit Timeout",
+        "pull on out of range": "Pull On Out Of Range",
+        "cooldown min": "Cooldown Min",
+        "cooldown max": "Cooldown Max",
+        "chance": "Chance",
+        "swing hand": "Swing Hand"
+      },
       "auto projectile": {
         "_value": "Auto Projectile",
         "target mode": {
@@ -742,6 +752,25 @@
         "swap back delay": "Swap Back Delay",
         "rotation speed": "Rotation Speed"
       },
+      "fake lag": {
+        "_value": "Fake Lag",
+        "mode": {
+          "_value": "Mode",
+          "constant": "Constant",
+          "dynamic": "Dynamic"
+        },
+        "range": "Range",
+        "delay min": "Delay Min",
+        "delay max": "Delay Max",
+        "recoil time": "Recoil Time",
+        "flush on": {
+          "_value": "Flush On",
+          "entityinteract": "Entity Interact",
+          "blockinteract": "Block Interact",
+          "action": "Action"
+        },
+        "pause on use": "Pause On Use"
+      },
       "feet trap": {
         "_value": "Feet Trap",
         "toggle on move": "Toggle On Move",
@@ -945,6 +974,26 @@
         "auto break": "Auto Break",
         "auto place": "Auto Place",
         "anti suicide": "Anti Suicide"
+      },
+      "super knockback": {
+        "_value": "Super Knockback",
+        "mode": {
+          "_value": "Mode",
+          "packet": "Packet",
+          "sprinttap": "Sprint Tap"
+        },
+        "hurt time": "Hurt Time",
+        "chance": "Chance",
+        "conditions": {
+          "_value": "Conditions",
+          "onlyfacing": "Only Facing",
+          "onlyonground": "Only On Ground",
+          "notinwater": "Not In Water"
+        },
+        "only on move": "Only On Move",
+        "only forward": "Only Forward",
+        "resprint min": "ReSprint Min",
+        "resprint max": "ReSprint Max"
       },
       "silent aim": {
         "_value": "Silent Aim",
@@ -1176,7 +1225,14 @@
       },
       "use cooldown": {
         "_value": "Use Cooldown",
-        "cooldown": "Cooldown"
+        "cooldown": "Cooldown",
+        "apply to": {
+          "_value": "Apply To",
+          "blocks": "Blocks",
+          "projectiles": "Projectiles",
+          "both": "Both"
+        },
+        "start delay": "Start Delay"
       },
       "auto queue": {
         "_value": "Auto Queue",

@@ -34,6 +34,9 @@ public abstract class MixinMinecraft {
     @Unique
     private boolean epsilon$freeCameraSet = false;
 
+    @Unique
+    private long epsilon$useKeyHoldStart = 0;
+
     @Shadow
     private int rightClickDelay;
 
@@ -91,9 +94,33 @@ public abstract class MixinMinecraft {
     @Inject(method = "startUseItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;isItemEnabled(Lnet/minecraft/world/flag/FeatureFlagSet;)Z"))
     private void onStartUseItem(CallbackInfo ci) {
         UseCooldown useCooldown = UseCooldown.INSTANCE;
-        if (useCooldown.isEnabled()) {
-            rightClickDelay = useCooldown.cooldown.getValue();
+        if (!useCooldown.isEnabled()) return;
+
+        Minecraft mc = (Minecraft) (Object) this;
+        if (mc.player == null) return;
+
+        // Item type filter — skip if neither hand matches the configured types
+        if (!useCooldown.shouldApplyTo(mc.player.getMainHandItem())
+                && !useCooldown.shouldApplyTo(mc.player.getOffhandItem())) {
+            return;
         }
+
+        // Start delay — only begin fast placement after holding the use key for N ms
+        int startDelay = useCooldown.startDelay.getValue();
+        if (startDelay > 0) {
+            if (!mc.options.keyUse.isDown()) {
+                epsilon$useKeyHoldStart = 0;
+                return;
+            }
+            if (epsilon$useKeyHoldStart == 0) {
+                epsilon$useKeyHoldStart = System.currentTimeMillis();
+            }
+            if (System.currentTimeMillis() - epsilon$useKeyHoldStart < startDelay) {
+                return;
+            }
+        }
+
+        rightClickDelay = useCooldown.cooldown.getValue();
     }
 
     @WrapOperation(method = "continueAttack", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isUsingItem()Z"))
