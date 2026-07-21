@@ -80,7 +80,7 @@ public class FakeLag extends Module {
 
     private final IntSetting recoilTime = intSetting("Recoil Time", 250, 0, 1000, 50);
 
-    private final MultiEnumSetting<FlushOn> flushOn = multiEnumSetting("Flush On", EnumSet.noneOf(FlushOn.class));
+    private final MultiEnumSetting<FlushOn> flushOn = multiEnumSetting("Flush On", EnumSet.allOf(FlushOn.class));
 
     private final BoolSetting pauseOnUse = boolSetting("Pause On Use", true);
 
