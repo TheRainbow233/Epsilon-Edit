@@ -15,7 +15,6 @@ import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.EnumSetting;
 import com.github.epsilon.settings.impl.IntSetting;
 import com.github.epsilon.settings.impl.MultiEnumSetting;
-import com.github.epsilon.utils.player.PlayerUtils;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -26,8 +25,6 @@ import net.minecraft.network.protocol.game.ServerboundAttackPacket;
 import net.minecraft.network.protocol.game.ServerboundInteractPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.network.protocol.game.ServerboundSignUpdatePacket;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundUseItemOnPacket;
@@ -199,7 +196,11 @@ public class FakeLag extends Module {
             }
         }
 
-        // Queue the packet
+        // Queue the packet — but don't let the queue grow unboundedly.
+        // If we're already behind, drop the oldest packet to make room.
+        if (packetQueue.size() >= MAX_QUEUE_SIZE) {
+            packetQueue.poll(); // Drop oldest
+        }
         event.cancel();
         packetQueue.add(new QueuedPacket(System.currentTimeMillis(), packet));
     }
@@ -264,9 +265,13 @@ public class FakeLag extends Module {
     // -- Packet classification --
 
     private boolean isDelayablePacket(Packet<?> packet) {
-        return packet instanceof ServerboundMovePlayerPacket
-                || packet instanceof ServerboundPlayerInputPacket
-                || packet instanceof ServerboundPlayerCommandPacket;
+        // Only delay position-carrying movement packets.
+        // Input and command packets must go through immediately to avoid
+        // TickTimer / Timer / Simulation violations on GrimAC.
+        if (packet instanceof ServerboundMovePlayerPacket movePacket) {
+            return movePacket.hasPosition();
+        }
+        return false;
     }
 
     private boolean shouldFlushOn(Packet<?> packet) {
@@ -297,10 +302,18 @@ public class FakeLag extends Module {
     }
 
     // -- Flush logic --
+    // Maximum queue size to prevent memory buildup when the delay keeps
+    // accumulating faster than we release
+    private static final int MAX_QUEUE_SIZE = 40;
 
+    /**
+     * Release expired packets gradually — at most one per tick to avoid
+     * triggering GrimAC TickTimer (which expects 1 position packet per tick).
+     */
     private void flushExpired(long now) {
-        QueuedPacket queued;
-        while ((queued = packetQueue.peek()) != null && now - queued.timestamp >= nextDelayMs) {
+        // Only release 1 packet per tick for gradual catch-up
+        QueuedPacket queued = packetQueue.peek();
+        if (queued != null && now - queued.timestamp >= nextDelayMs) {
             packetQueue.poll();
             sendPacket(queued.packet);
         }
@@ -314,8 +327,13 @@ public class FakeLag extends Module {
 
     private void flushAll() {
         QueuedPacket queued;
+        int count = 0;
         while ((queued = packetQueue.poll()) != null) {
             sendPacket(queued.packet);
+            count++;
+        }
+        if (count > 5) {
+            // Log warning if we dump a lot — only for safety flushes
         }
         lagStartPosition = Vec3.ZERO;
         nextDelayMs = getRandomDelay();
