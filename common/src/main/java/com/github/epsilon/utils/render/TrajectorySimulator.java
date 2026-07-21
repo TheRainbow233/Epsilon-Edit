@@ -285,7 +285,7 @@ public final class TrajectorySimulator {
 
     // ── Color ──
 
-    public static Color resolveColor(TrajectoryType type, @Nullable Entity entity, Color defaultColor) {
+    public static Color resolveColor(TrajectoryType type, @Nullable Entity entity) {
         return switch (type) {
             case ARROW -> new Color(255, 255, 255, 220);
             case POTION -> {
