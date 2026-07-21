@@ -134,13 +134,13 @@ public final class TrajectorySimulator {
     // ── Entity → Descriptor resolution ──
 
     public static @Nullable TrajectoryDescriptor resolveEntity(Entity entity, boolean activeArrows, boolean activeOthers) {
-        if (activeArrows && entity instanceof AbstractArrow a && !(entity instanceof ThrownTrident) && !a.isInGround()) {
+        if (activeArrows && entity instanceof AbstractArrow a && !(entity instanceof ThrownTrident) && a.getDeltaMovement().lengthSqr() > 1.0E-4) {
             return ENTITY_ARROW_DESC;
         }
         if (!activeOthers) return null;
 
         if (entity instanceof AbstractThrownPotion)    return POTION_DESC;
-        if (entity instanceof ThrownTrident t && !t.isInGround()) return TRIDENT_DESC;
+        if (entity instanceof ThrownTrident t && t.getDeltaMovement().lengthSqr() > 1.0E-4) return TRIDENT_DESC;
         if (entity instanceof ThrownEnderpearl)        return ENDER_PEARL_DESC;
         if (entity instanceof Snowball)                return SNOWBALL_DESC;
         if (entity instanceof ThrownExperienceBottle)  return EXP_BOTTLE_DESC;
@@ -288,13 +288,7 @@ public final class TrajectorySimulator {
     public static Color resolveColor(TrajectoryType type, @Nullable Entity entity) {
         return switch (type) {
             case ARROW -> new Color(255, 255, 255, 220);
-            case POTION -> {
-                if (entity instanceof AbstractThrownPotion p) {
-                    int c = p.getColor();
-                    yield new Color((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF, 220);
-                }
-                yield new Color(180, 80, 200, 220);
-            }
+            case POTION -> new Color(180, 80, 200, 220);
             case ENDER_PEARL  -> new Color(128, 0, 128, 200);
             case SNOWBALL     -> new Color(200, 200, 200, 220);
             case EGG          -> new Color(240, 234, 214, 220);
