@@ -13,6 +13,8 @@ import com.github.epsilon.managers.impl.sound.SoundKey;
 import com.github.epsilon.modules.Module;
 import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.modules.impl.combat.*;
+import com.github.epsilon.modules.impl.misc.AntiBot;
+import com.github.epsilon.modules.impl.misc.Teams;
 import com.github.epsilon.modules.impl.movement.*;
 import com.github.epsilon.modules.impl.movement.elytrafly.ElytraFly;
 import com.github.epsilon.modules.impl.movement.follower.Follower;
@@ -44,7 +46,6 @@ public class ModuleHolder {
         // Combat
         addModule(AimBot.INSTANCE);
         addModule(AnchorBlast.INSTANCE);
-        addModule(AntiBot.INSTANCE);
         addModule(AutoClicker.INSTANCE);
         addModule(AutoDtap.INSTANCE);
         addModule(AutoHitCrystal.INSTANCE);
@@ -67,6 +68,10 @@ public class ModuleHolder {
         addModule(SilentAim.INSTANCE);
         addModule(SpearKill.INSTANCE);
         addModule(TriggerBot.INSTANCE);
+
+        // Misc
+        addModule(AntiBot.INSTANCE);
+        addModule(Teams.INSTANCE);
 
         // Player
         addModule(AutoArmor.INSTANCE);
@@ -133,6 +138,7 @@ public class ModuleHolder {
         addModule(HitParticles.INSTANCE);
         addModule(HoleESP.INSTANCE);
         addModule(JumpCircle.INSTANCE);
+        addModule(Trajectories.INSTANCE);
         addModule(MasEffects.INSTANCE);
         addModule(NameTags.INSTANCE);
         addModule(NoRender.INSTANCE);
