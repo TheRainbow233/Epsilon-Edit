@@ -40,6 +40,7 @@ public class AutoProjectile extends Module {
     private final DoubleSetting maxAngle = doubleSetting("Max Angle", 30.0, 5.0, 90.0, 1.0);
     private final BoolSetting silentRotate = boolSetting("Silent Rotate", true);
     private final IntSetting maxTicks = intSetting("Max Ticks", 100, 30, 300, 10);
+    private final BoolSetting stopAtKARange = boolSetting("Stop At KA Range", true);
     private final IntSetting throwDelay = intSetting("Throw Delay", 5, 1, 40, 1);
 
     private int delayCounter;
@@ -77,6 +78,13 @@ public class AutoProjectile extends Module {
 
         LivingEntity target = findTarget();
         if (target == null) return;
+
+        // Stop if KillAura is handling melee range
+        if (stopAtKARange.getValue() && KillAura.INSTANCE.isEnabled()) {
+            if (player.distanceToSqr(target) <= KillAura.INSTANCE.aimRange.getValue() * KillAura.INSTANCE.aimRange.getValue()) {
+                return;
+            }
+        }
 
         // Skip ender pearl if target is too close (self-damage risk)
         if (desc.type() == TrajectorySimulator.TrajectoryType.ENDER_PEARL

@@ -79,6 +79,11 @@ public class Trajectories extends Module {
         float yaw = player.getViewYRot(partialTick);
         float pitch = player.getViewXRot(partialTick);
         Vec3 lookDir = Vec3.directionFromRotation(pitch, yaw);
+
+        // Offset to right-hand side so trajectory line doesn't overlap with crosshair
+        Vec3 rightDir = new Vec3(-lookDir.z, 0, lookDir.x);
+        Vec3 startPos = eyePos.add(rightDir.scale(0.4));
+
         Vec3 velocity = lookDir.scale(desc.params().initialVelocity());
 
         // Add player momentum for projectile types that inherit it
@@ -92,7 +97,7 @@ public class Trajectories extends Module {
         }
 
         TrajectorySimulator.SimulationResult result = TrajectorySimulator.simulate(
-            eyePos, velocity, desc.params(), desc.type(),
+            startPos, velocity, desc.params(), desc.type(),
             maxTicks.getValue(), player
         );
 
