@@ -88,6 +88,7 @@ public class FakeLag extends Module {
     private long lastFlushTime;
     private Vec3 lagStartPosition = Vec3.ZERO;
     private boolean hasEnemyNearby;
+    private boolean flushing; // guard against re-queueing during flush
     private final Random random = new Random();
 
     private record QueuedPacket(long timestamp, Packet<?> packet) {
@@ -148,7 +149,9 @@ public class FakeLag extends Module {
 
     @EventHandler
     private void onPacketSend(PacketEvent.Send event) {
-        if (nullCheck()) return;
+        // Never intercept packets we're flushing ourselves — prevents
+        // infinite re-queue loop: flush → send → event → queue → flush → ...
+        if (nullCheck() || flushing) return;
 
         Packet<?> packet = event.getPacket();
 
@@ -315,7 +318,12 @@ public class FakeLag extends Module {
         QueuedPacket queued = packetQueue.peek();
         if (queued != null && now - queued.timestamp >= nextDelayMs) {
             packetQueue.poll();
-            sendPacket(queued.packet);
+            flushing = true;
+            try {
+                sendPacket(queued.packet);
+            } finally {
+                flushing = false;
+            }
         }
 
         // If all packets flushed, reset for next cycle
@@ -326,14 +334,14 @@ public class FakeLag extends Module {
     }
 
     private void flushAll() {
-        QueuedPacket queued;
-        int count = 0;
-        while ((queued = packetQueue.poll()) != null) {
-            sendPacket(queued.packet);
-            count++;
-        }
-        if (count > 5) {
-            // Log warning if we dump a lot — only for safety flushes
+        flushing = true;
+        try {
+            QueuedPacket queued;
+            while ((queued = packetQueue.poll()) != null) {
+                sendPacket(queued.packet);
+            }
+        } finally {
+            flushing = false;
         }
         lagStartPosition = Vec3.ZERO;
         nextDelayMs = getRandomDelay();
