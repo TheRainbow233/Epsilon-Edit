@@ -10,6 +10,7 @@ import com.github.epsilon.modules.Module;
 import com.github.epsilon.settings.Setting;
 import com.github.epsilon.settings.SettingGroup;
 import com.github.epsilon.settings.impl.EnumSetting;
+import com.github.epsilon.settings.impl.MultiEnumSetting;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -138,6 +139,11 @@ public class I18NFileGenerator {
         if (setting instanceof EnumSetting<?> enumSetting) {
             for (final var mode : enumSetting.getModes()) {
                 I18NJson.addTranslation(root, settingKey + "." + mode.toString().toLowerCase(), "");
+            }
+        }
+        if (setting instanceof MultiEnumSetting<?> multiEnumSetting) {
+            for (final var value : multiEnumSetting.getConstants()) {
+                I18NJson.addTranslation(root, settingKey + "." + value.name().toLowerCase(), "");
             }
         }
     }

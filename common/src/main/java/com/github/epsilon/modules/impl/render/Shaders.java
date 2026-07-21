@@ -4,6 +4,7 @@ import com.github.epsilon.holders.ShaderHolder;
 import com.github.epsilon.managers.Managers;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
@@ -21,13 +22,10 @@ public class Shaders extends Module {
     }
 
     private final BoolSetting hands = boolSetting("Hands", true);
-    private final BoolSetting players = boolSetting("Players", true);
-    private final BoolSetting self = boolSetting("Self", true, players::getValue);
+    private final BoolSetting self = boolSetting("Self", true, () -> ClientSetting.INSTANCE.targetPlayer.getValue());
     private final BoolSetting friends = boolSetting("Friends", true);
     private final BoolSetting crystals = boolSetting("Crystals", true);
     private final BoolSetting chests = boolSetting("Chests", true);
-    private final BoolSetting creatures = boolSetting("Creatures", false);
-    private final BoolSetting monsters = boolSetting("Monsters", false);
     private final BoolSetting ambients = boolSetting("Ambients", false);
     private final BoolSetting others = boolSetting("Others", false);
 
@@ -35,7 +33,7 @@ public class Shaders extends Module {
     public final EnumSetting<ShaderHolder.Shader> handsMode = enumSetting("Hands Mode", ShaderHolder.Shader.Default);
     public final EnumSetting<ShaderHolder.Shader> chestMode = enumSetting("Chest Mode", ShaderHolder.Shader.Default);
 
-    public final IntSetting maxRange = intSetting("Max Range", 64, 16, 256, 1, () -> players.getValue() || crystals.getValue() || chests.getValue() || friends.getValue() || creatures.getValue() || monsters.getValue() || ambients.getValue() || others.getValue());
+    public final IntSetting maxRange = intSetting("Max Range", 64, 16, 256, 1, () -> ClientSetting.INSTANCE.targetPlayer.getValue() || crystals.getValue() || chests.getValue() || friends.getValue() || ClientSetting.INSTANCE.targetAnimal.getValue() || ClientSetting.INSTANCE.targetMob.getValue() || ambients.getValue() || others.getValue());
     public final DoubleSetting factor = doubleSetting("Gradient Factor", 2.0, 0.0, 20.0, 0.1, () -> mode.is(ShaderHolder.Shader.Gradient) || handsMode.is(ShaderHolder.Shader.Gradient) || chestMode.is(ShaderHolder.Shader.Gradient));
     public final DoubleSetting gradient = doubleSetting("Gradient", 2.0, 0.0, 20.0, 0.1, () -> mode.is(ShaderHolder.Shader.Gradient) || handsMode.is(ShaderHolder.Shader.Gradient) || chestMode.is(ShaderHolder.Shader.Gradient));
     public final IntSetting alpha2 = intSetting("Gradient Alpha", 170, 0, 255, 1, () -> mode.is(ShaderHolder.Shader.Gradient) || handsMode.is(ShaderHolder.Shader.Gradient) || chestMode.is(ShaderHolder.Shader.Gradient));
@@ -80,7 +78,7 @@ public class Shaders extends Module {
             if (Managers.FRIEND.isFriend(player)) {
                 return friends.getValue();
             }
-            return players.getValue();
+            return ClientSetting.INSTANCE.targetPlayer.getValue();
         }
 
         if (entity instanceof EndCrystal) {
@@ -88,8 +86,8 @@ public class Shaders extends Module {
         }
 
         return switch (entity.getType().getCategory()) {
-            case CREATURE, WATER_CREATURE -> creatures.getValue();
-            case MONSTER -> monsters.getValue();
+            case CREATURE, WATER_CREATURE -> ClientSetting.INSTANCE.targetAnimal.getValue();
+            case MONSTER -> ClientSetting.INSTANCE.targetMob.getValue();
             case AMBIENT, WATER_AMBIENT -> ambients.getValue();
             default -> others.getValue();
         };

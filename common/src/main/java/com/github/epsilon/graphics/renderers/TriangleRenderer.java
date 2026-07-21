@@ -22,7 +22,7 @@ import java.util.OptionalDouble;
 
 public class TriangleRenderer implements IRenderer {
 
-    private static final long BUFFER_SIZE = 16 * 1024;
+    private static final long BUFFER_SIZE = 128 * 1024;
     private static final int STRIDE = 16;
     private static final long TRIANGLE_BYTES = STRIDE * 3L;
 

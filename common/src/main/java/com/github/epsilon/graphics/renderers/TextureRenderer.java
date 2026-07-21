@@ -35,7 +35,7 @@ import static com.github.epsilon.Constants.mc;
 public class TextureRenderer implements IRenderer {
 
     private static final int STRIDE = 56;
-    private static final long BUFFER_SIZE = 16 * 1024;
+    private static final long BUFFER_SIZE = 128 * 1024;
     private static final long QUAD_BYTES = STRIDE * 4L;
 
     private final Map<Object, Batch> batches = new LinkedHashMap<>();

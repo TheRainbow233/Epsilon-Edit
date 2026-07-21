@@ -11,10 +11,10 @@ import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.IntSetting;
 import com.github.epsilon.utils.render.TrajectorySimulator;
 import com.github.epsilon.utils.render.TrajectorySimulator.TrajectoryDescriptor;
+import com.github.epsilon.utils.render.WorldToScreen;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.awt.*;
@@ -91,27 +91,26 @@ public class Trajectories extends Module {
             );
         }
 
-        List<Vec3> positions = TrajectorySimulator.simulate(
+        TrajectorySimulator.SimulationResult result = TrajectorySimulator.simulate(
             eyePos, velocity, desc.params(), desc.type(),
             maxTicks.getValue(), player
         );
 
+        List<Vec3> positions = result.positions();
         if (positions.size() < 2) return;
 
         Color lineColor = heldItemsColor.getValue();
         TrajectorySimulator.renderTrajectory(positions, lineColor, lineWidth.getValue().floatValue());
 
         if (showImpact.getValue()) {
-            HitResult hit = TrajectorySimulator.getHitResult(
-                eyePos, velocity, desc.params(), desc.type(),
-                maxTicks.getValue(), player
-            );
-            TrajectorySimulator.renderImpact(hit, impactColor.getValue());
+            TrajectorySimulator.renderImpact(result.hitResult(), impactColor.getValue());
         }
     }
 
     private void renderEntityTrajectories(float partialTick) {
         for (Entity entity : mc.level.entitiesForRendering()) {
+            if (!WorldToScreen.isInFrontOfCamera(entity, partialTick)) continue;
+
             TrajectoryDescriptor desc = TrajectorySimulator.resolveEntity(
                 entity, activeArrows.getValue(), true
             );
@@ -120,22 +119,19 @@ public class Trajectories extends Module {
             Vec3 pos = entity.getEyePosition(partialTick).subtract(0, 0.1, 0);
             Vec3 velocity = entity.getDeltaMovement();
 
-            List<Vec3> positions = TrajectorySimulator.simulate(
+            TrajectorySimulator.SimulationResult result = TrajectorySimulator.simulate(
                 pos, velocity, desc.params(), desc.type(),
                 maxTicks.getValue(), entity
             );
 
+            List<Vec3> positions = result.positions();
             if (positions.size() < 2) continue;
 
             Color lineColor = entitiesColor.getValue();
             TrajectorySimulator.renderTrajectory(positions, lineColor, lineWidth.getValue().floatValue());
 
             if (showImpact.getValue()) {
-                HitResult hit = TrajectorySimulator.getHitResult(
-                    pos, velocity, desc.params(), desc.type(),
-                    maxTicks.getValue(), entity
-                );
-                TrajectorySimulator.renderImpact(hit, impactColor.getValue());
+                TrajectorySimulator.renderImpact(result.hitResult(), impactColor.getValue());
             }
         }
     }

@@ -75,6 +75,10 @@ public class TtfFontFile {
         }
     }
 
+    public boolean isMissingGlyph(int codepoint) {
+        return STBTruetype.stbtt_FindGlyphIndex(fontInfo, codepoint) == 0;
+    }
+
     public synchronized TtfGlyph generateGlyph(char ch) {
         return generateGlyph((int) ch);
     }

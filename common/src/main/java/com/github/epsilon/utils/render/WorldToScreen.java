@@ -32,7 +32,7 @@ public class WorldToScreen {
     public static Vector4d getEntityPositionsOn2D(Entity entity, float tickDelta) {
         Vec3 position = interpolate(entity, tickDelta);
         float halfWidth = entity.getBbWidth() / 2.0f;
-        float height = entity.getBbHeight() + (entity.isCrouching() ? 0.1f : 0.2f);
+        float height = entity.getBbHeight() + 0.2f;
         AABB boundingBox = new AABB(
                 position.x - halfWidth, position.y, position.z - halfWidth,
                 position.x + halfWidth, position.y + height, position.z + halfWidth
@@ -82,6 +82,30 @@ public class WorldToScreen {
         }
 
         return bounds;
+    }
+
+    /**
+     * Returns true if the entity center is in front of the camera.
+     * Use this as a fast pre-check before expensive AABB projection.
+     */
+    public static boolean isInFrontOfCamera(Entity entity, float tickDelta) {
+        Vec3 pos = interpolate(entity, tickDelta);
+        Vec3 cameraPos = mc.gameRenderer.mainCamera().position();
+        Vector3f relative = new Vector3f(
+                (float)(pos.x - cameraPos.x),
+                (float)(pos.y - cameraPos.y),
+                (float)(pos.z - cameraPos.z)
+        );
+
+        // viewRotationMatrix is rotation-only; transform relative pos to camera space to get depth
+        CameraRenderState cameraState = mc.gameRenderer.gameRenderState().levelRenderState.cameraRenderState;
+        Matrix4f viewRot = new Matrix4f(cameraState.viewRotationMatrix);
+        Vector3f cameraSpace = relative.mulPosition(viewRot);
+
+        // camera looks down -Z in OpenGL convention, so cameraSpace.z should be negative for in-front
+        // with reversed depth: near=1, far=0. Entity must be between near and far.
+        // We just check that the entity is on the correct side of the camera (z < 0 in view space)
+        return cameraSpace.z < 0.0f;
     }
 
     public static Vec3 interpolate(Entity entity, float tickDelta) {

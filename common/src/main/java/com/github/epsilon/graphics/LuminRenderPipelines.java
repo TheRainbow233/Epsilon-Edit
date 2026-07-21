@@ -56,6 +56,13 @@ public class LuminRenderPipelines {
             .withCull(false)
             .build();
 
+    public final static RenderPipeline EMOJI = RenderPipeline.builder(GUI_TTF_FONT_SNIPPET)
+            .withLocation(ResourceLocationUtils.getIdentifier("pipelines/emoji"))
+            .withVertexShader(ResourceLocationUtils.getIdentifier("ttf_font"))
+            .withFragmentShader(ResourceLocationUtils.getIdentifier("emoji"))
+            .withCull(false)
+            .build();
+
     public final static RenderPipeline ROUND_RECT = RenderPipeline.builder(NO_BLEND_DEPTH_SNIPPET)
             .withLocation(ResourceLocationUtils.getIdentifier("pipelines/round_rectangle"))
             .withVertexBinding(0, LuminVertexFormats.ROUND_RECT)

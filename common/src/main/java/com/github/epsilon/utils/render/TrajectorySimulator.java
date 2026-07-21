@@ -72,6 +72,8 @@ public final class TrajectorySimulator {
 
     public record TrajectoryDescriptor(TrajectoryParams params, TrajectoryType type) {}
 
+    public record SimulationResult(List<Vec3> positions, @Nullable HitResult hitResult) {}
+
     // ── Physics constants (from vanilla Minecraft / LiquidBounce) ──
 
     public static final TrajectoryParams GENERIC      = new TrajectoryParams(0.03, 0.25, 1.5,  0.99, 0.8,  true);
@@ -88,7 +90,6 @@ public final class TrajectorySimulator {
 
     // ── Pre-built descriptors ──
 
-    public static final TrajectoryDescriptor BOW_ARROW       = new TrajectoryDescriptor(PERSISTENT, TrajectoryType.ARROW);
     public static final TrajectoryDescriptor CROSSBOW        = new TrajectoryDescriptor(CROSSBOW_ARROW, TrajectoryType.ARROW);
     public static final TrajectoryDescriptor POTION_DESC     = new TrajectoryDescriptor(POTION, TrajectoryType.POTION);
     public static final TrajectoryDescriptor ENDER_PEARL_DESC = new TrajectoryDescriptor(GENERIC, TrajectoryType.ENDER_PEARL);
@@ -154,18 +155,19 @@ public final class TrajectorySimulator {
 
     // ── Simulation ──
 
-    public static List<Vec3> simulate(
+    public static SimulationResult simulate(
         Vec3 startPos, Vec3 startVelocity,
         TrajectoryParams params, TrajectoryType type,
         int maxTicks, Entity owner
     ) {
         Level world = mc.level;
-        if (world == null) return List.of();
+        if (world == null) return new SimulationResult(List.of(), null);
 
         Vec3 pos = startPos;
         Vec3 velocity = startVelocity;
         List<Vec3> positions = new ArrayList<>();
         positions.add(pos);
+        HitResult hitResult = null;
 
         // First-tick correction for certain projectile types
         if (type.requiresInitialTickCorrection()) {
@@ -185,45 +187,14 @@ public final class TrajectorySimulator {
             HitResult hit = checkForHits(prevPos, pos, params, owner, world);
             if (hit != null) {
                 positions.add(hit.getLocation());
-                return positions;
+                hitResult = hit;
+                break;
             }
 
             velocity = tickVelocity(velocity, params, world, pos);
         }
 
-        return positions;
-    }
-
-    public static @Nullable HitResult getHitResult(
-        Vec3 startPos, Vec3 startVelocity,
-        TrajectoryParams params, TrajectoryType type,
-        int maxTicks, Entity owner
-    ) {
-        Level world = mc.level;
-        if (world == null) return null;
-
-        Vec3 pos = startPos;
-        Vec3 velocity = startVelocity;
-
-        if (type.requiresInitialTickCorrection()) {
-            velocity = tickVelocity(velocity, params, world, pos);
-        }
-
-        int startTick = type.requiresInitialTickCorrection() ? 1 : 0;
-
-        for (int tick = startTick; tick < maxTicks; tick++) {
-            if (pos.y < world.getMinY()) return null;
-
-            Vec3 prevPos = pos;
-            pos = pos.add(velocity);
-
-            HitResult hit = checkForHits(prevPos, pos, params, owner, world);
-            if (hit != null) return hit;
-
-            velocity = tickVelocity(velocity, params, world, pos);
-        }
-
-        return null;
+        return new SimulationResult(positions, hitResult);
     }
 
     private static Vec3 tickVelocity(Vec3 velocity, TrajectoryParams params, Level world, Vec3 pos) {
@@ -283,21 +254,4 @@ public final class TrajectorySimulator {
         Render3DScheduler.INSTANCE.addOutlineBox(box, color);
     }
 
-    // ── Color ──
-
-    public static Color resolveColor(TrajectoryType type, @Nullable Entity entity) {
-        return switch (type) {
-            case ARROW -> new Color(255, 255, 255, 220);
-            case POTION -> new Color(180, 80, 200, 220);
-            case ENDER_PEARL  -> new Color(128, 0, 128, 200);
-            case SNOWBALL     -> new Color(200, 200, 200, 220);
-            case EGG          -> new Color(240, 234, 214, 220);
-            case EXP_BOTTLE   -> new Color(120, 230, 120, 220);
-            case FISHING_ROD  -> new Color(0, 200, 200, 200);
-            case TRIDENT      -> new Color(180, 210, 255, 220);
-            case FIREWORK     -> new Color(255, 160, 0, 220);
-            case FIREBALL     -> new Color(255, 100, 0, 220);
-            case WIND_CHARGE  -> new Color(180, 235, 255, 220);
-        };
-    }
 }

@@ -2,6 +2,7 @@ package com.github.epsilon.graphics.text.minecraft;
 
 import com.github.epsilon.graphics.LuminRenderPipelines;
 import com.github.epsilon.graphics.text.GlyphDescriptor;
+import com.github.epsilon.graphics.text.SystemEmojiAtlas;
 import com.github.epsilon.graphics.text.ttf.TtfFontLoader;
 import com.github.epsilon.graphics.text.ttf.TtfGlyphAtlas;
 import com.github.epsilon.modules.impl.ClientSetting;
@@ -34,12 +35,28 @@ public final class EpsilonFontGlyph implements BakedGlyph {
     private final TtfFontLoader font;
     private final @Nullable GlyphDescriptor descriptor;
     private final GlyphInfo info;
+    private final boolean isEmoji;
+    private final SystemEmojiAtlas.EmojiGlyph emojiGlyph;
 
     private EpsilonFontGlyph(int codepoint, TtfFontLoader font, @Nullable GlyphDescriptor descriptor) {
         this.codepoint = codepoint;
         this.font = font;
         this.descriptor = descriptor;
+        this.isEmoji = false;
+        this.emojiGlyph = null;
         this.info = new EpsilonGlyphInfo(EpsilonFontMetrics.advance(codepoint, Style.EMPTY, font));
+    }
+
+    private EpsilonFontGlyph(int codepoint, TtfFontLoader font, SystemEmojiAtlas.EmojiGlyph emojiGlyph) {
+        this.codepoint = codepoint;
+        this.font = font;
+        this.descriptor = null;
+        this.isEmoji = true;
+        this.emojiGlyph = emojiGlyph;
+        // Emoji advance matches the font height for consistent sizing
+        float scale = EpsilonFontMetrics.minecraftScale(font);
+        float emojiSize = font.fontFile.pixelAscent * scale * 1.25f;
+        this.info = new EpsilonGlyphInfo(emojiSize);
     }
 
     public static @Nullable EpsilonFontGlyph create(int codepoint) {
@@ -49,15 +66,29 @@ public final class EpsilonFontGlyph implements BakedGlyph {
         }
 
         if (Character.isWhitespace(codepoint)) {
-            return new EpsilonFontGlyph(codepoint, font, null);
+            return new EpsilonFontGlyph(codepoint, font, (GlyphDescriptor) null);
         }
         if (codepoint < Character.MIN_CODE_POINT || codepoint > Character.MAX_CODE_POINT) {
             return null;
         }
 
+        // Try TTF glyph first
         font.requestChars(new String(Character.toChars(codepoint)));
         GlyphDescriptor descriptor = font.getGlyph(codepoint);
-        return descriptor != null ? new EpsilonFontGlyph(codepoint, font, descriptor) : null;
+        if (descriptor != null) {
+            return new EpsilonFontGlyph(codepoint, font, descriptor);
+        }
+
+        // TTF has no glyph → try emoji (e.g. 😀🎉)
+        if (codepoint > 127 && Character.isEmoji(codepoint)) {
+            String emojiStr = new String(Character.toChars(codepoint));
+            SystemEmojiAtlas.EmojiGlyph emojiGlyph = SystemEmojiAtlas.INSTANCE.get(emojiStr);
+            if (emojiGlyph != null) {
+                return new EpsilonFontGlyph(codepoint, font, emojiGlyph);
+            }
+        }
+
+        return null;
     }
 
     @Override
@@ -67,13 +98,17 @@ public final class EpsilonFontGlyph implements BakedGlyph {
 
     @Override
     public TextRenderable.@Nullable Styled createGlyph(float x, float y, int color, int shadowColor, Style style, float boldOffset, float shadowOffset) {
-        if (this.descriptor == null) {
+        if (this.descriptor == null && !this.isEmoji) {
             return null;
         }
         return new GlyphInstance(this, x, y, color, shadowColor, style, boldOffset, shadowOffset);
     }
 
     private RenderType renderType() {
+        // Emoji render type — uses SystemEmojiAtlas texture + EMOJI pipeline
+        if (this.isEmoji) {
+            return EMOJI_RENDER_TYPE;
+        }
         if (this.descriptor == null) {
             throw new IllegalStateException("Whitespace glyphs do not have render types");
         }
@@ -90,8 +125,23 @@ public final class EpsilonFontGlyph implements BakedGlyph {
         ));
     }
 
+    private static final RenderType EMOJI_RENDER_TYPE = RenderType.create(
+            "epsilon_emoji_text",
+            RenderSetup.builder(LuminRenderPipelines.EMOJI)
+                    .withTexture("Sampler0",
+                            com.github.epsilon.assets.resources.ResourceLocationUtils.getIdentifier("textures/system_emoji_atlas"),
+                            () -> SystemEmojiAtlas.INSTANCE.getTexture() != null
+                                    ? SystemEmojiAtlas.INSTANCE.getTexture().getSampler()
+                                    : null)
+                    .createRenderSetup()
+    );
+
     private float baselineY(float y) {
         return y + this.font.fontFile.pixelAscent * scale();
+    }
+
+    private float emojiSize() {
+        return this.font.fontFile.pixelAscent * scale() * 1.25f;
     }
 
     private float scale() {
@@ -99,9 +149,8 @@ public final class EpsilonFontGlyph implements BakedGlyph {
     }
 
     private float left(float x, boolean bold, boolean italic) {
-        if (this.descriptor == null) {
-            return x;
-        }
+        if (this.isEmoji) return x;
+        if (this.descriptor == null) return x;
         float left = x + this.descriptor.xOffset() * scale();
         if (italic) left += Math.min(italicShearTop(yTop(0.0f)), italicShearBottom(yBottom(0.0f)));
         if (bold) left -= extraThickness(true);
@@ -113,16 +162,14 @@ public final class EpsilonFontGlyph implements BakedGlyph {
     }
 
     private float top(float y) {
-        if (this.descriptor == null) {
-            return y;
-        }
+        if (this.isEmoji) return y - emojiSize() * 0.1f;
+        if (this.descriptor == null) return y;
         return yTop(y);
     }
 
     private float right(float x, boolean hasShadow, float shadowOffset, boolean bold, boolean italic) {
-        if (this.descriptor == null) {
-            return x + this.info.getAdvance(bold);
-        }
+        if (this.isEmoji) return x + emojiSize();
+        if (this.descriptor == null) return x + this.info.getAdvance(bold);
         float right = x + this.descriptor.xOffset() * scale() + this.descriptor.width() * scale();
         if (hasShadow) right += shadowOffset;
         if (bold) right += extraThickness(true);
@@ -131,6 +178,7 @@ public final class EpsilonFontGlyph implements BakedGlyph {
     }
 
     private float bottom(float y, boolean hasShadow, float shadowOffset, boolean bold) {
+        if (this.isEmoji) return top(y) + emojiSize();
         float bottom = yBottom(y);
         if (hasShadow) bottom += shadowOffset;
         if (bold) bottom += extraThickness(true);
@@ -154,6 +202,10 @@ public final class EpsilonFontGlyph implements BakedGlyph {
     }
 
     private void renderGlyph(Matrix4fc pose, VertexConsumer buffer, GlyphInstance instance, float offsetX, float offsetY, float z, int color, boolean bold) {
+        if (this.isEmoji && this.emojiGlyph != null) {
+            renderEmoji(pose, buffer, instance, offsetX, offsetY, z);
+            return;
+        }
         if (this.descriptor == null) {
             return;
         }
@@ -171,6 +223,27 @@ public final class EpsilonFontGlyph implements BakedGlyph {
         buffer.addVertex(pose, x0 + shearBottom - extraThickness, y1 + extraThickness, z).setUv(uv.u0(), uv.v1()).setColor(color);
         buffer.addVertex(pose, x1 + shearBottom + extraThickness, y1 + extraThickness, z).setUv(uv.u1(), uv.v1()).setColor(color);
         buffer.addVertex(pose, x1 + shearTop + extraThickness, y0 - extraThickness, z).setUv(uv.u1(), uv.v0()).setColor(color);
+    }
+
+    private void renderEmoji(Matrix4fc pose, VertexConsumer buffer, GlyphInstance instance, float offsetX, float offsetY, float z) {
+        float scale = scale();
+        float emojiSize = this.font.fontFile.pixelAscent * scale * 1.25f;
+        float x0 = instance.x + offsetX;
+        float x1 = x0 + emojiSize;
+        float y0 = instance.y + offsetY - emojiSize * 0.1f;
+        float y1 = y0 + emojiSize;
+
+        float u0 = this.emojiGlyph.u0();
+        float v0 = this.emojiGlyph.v0();
+        float u1 = this.emojiGlyph.u1();
+        float v1 = this.emojiGlyph.v1();
+
+        // Emoji uses WHITE tint so the glyph's own RGBA colors show through
+        int white = 0xFFFFFFFF;
+        buffer.addVertex(pose, x0, y0, z).setUv(u0, v0).setColor(white);
+        buffer.addVertex(pose, x0, y1, z).setUv(u0, v1).setColor(white);
+        buffer.addVertex(pose, x1, y1, z).setUv(u1, v1).setColor(white);
+        buffer.addVertex(pose, x1, y0, z).setUv(u1, v0).setColor(white);
     }
 
     private record GlyphInstance(
@@ -211,6 +284,9 @@ public final class EpsilonFontGlyph implements BakedGlyph {
 
         @Override
         public GpuTextureView textureView() {
+            if (this.glyph.isEmoji && SystemEmojiAtlas.INSTANCE.getTexture() != null) {
+                return SystemEmojiAtlas.INSTANCE.getTexture().getTextureView();
+            }
             if (this.glyph.descriptor == null) {
                 throw new IllegalStateException("Whitespace glyphs do not have textures");
             }
@@ -219,6 +295,9 @@ public final class EpsilonFontGlyph implements BakedGlyph {
 
         @Override
         public GpuSampler epsilon$sampler() {
+            if (this.glyph.isEmoji && SystemEmojiAtlas.INSTANCE.getTexture() != null) {
+                return SystemEmojiAtlas.INSTANCE.getTexture().getSampler();
+            }
             if (this.glyph.descriptor == null) {
                 throw new IllegalStateException("Whitespace glyphs do not have samplers");
             }
@@ -227,6 +306,9 @@ public final class EpsilonFontGlyph implements BakedGlyph {
 
         @Override
         public RenderPipeline guiPipeline() {
+            if (this.glyph.isEmoji) {
+                return LuminRenderPipelines.EMOJI;
+            }
             return ClientSetting.INSTANCE.fontAntiAliasing.getValue()
                     ? LuminRenderPipelines.TTF_FONT_AA
                     : LuminRenderPipelines.TTF_FONT_NO_AA;

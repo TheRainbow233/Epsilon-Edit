@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.Block;
 import java.awt.*;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public interface SettingHost {
@@ -206,5 +207,22 @@ public interface SettingHost {
 
     default RegistryListSetting<SoundEvent> soundEventListSetting(String name, Collection<SoundEvent> defaultValue) {
         return addSetting(new RegistryListSetting<>(name, defaultValue, RegistryListSetting.Type.SOUND_EVENT, null, () -> true));
+    }
+
+    default <E extends Enum<E>> MultiEnumSetting<E> multiEnumSetting(String name, Collection<E> defaultValue,
+                                                                     Setting.Dependency dependency) {
+        return addSetting(new MultiEnumSetting<>(name, defaultValue, dependency));
+    }
+
+    default <E extends Enum<E>> MultiEnumSetting<E> multiEnumSetting(String name, Collection<E> defaultValue,
+                                                                     Setting.Dependency dependency,
+                                                                     java.util.function.Consumer<Set<E>> onChanged) {
+        MultiEnumSetting<E> s = new MultiEnumSetting<>(name, defaultValue, dependency);
+        s.onChanged = onChanged;
+        return addSetting(s);
+    }
+
+    default <E extends Enum<E>> MultiEnumSetting<E> multiEnumSetting(String name, Collection<E> defaultValue) {
+        return addSetting(new MultiEnumSetting<>(name, defaultValue, () -> true));
     }
 }

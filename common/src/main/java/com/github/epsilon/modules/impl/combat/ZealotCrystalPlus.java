@@ -13,6 +13,7 @@ import com.github.epsilon.managers.Managers;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.SettingGroup;
 import com.github.epsilon.settings.impl.*;
 import com.github.epsilon.utils.combat.DamageUtils;
@@ -81,9 +82,6 @@ public class ZealotCrystalPlus extends Module {
     private final SettingGroup sgRender = settingGroup("Render");
 
     // General
-    private final BoolSetting players = boolSetting("Players", true).group(sgGeneral);
-    private final BoolSetting mobs = boolSetting("Mobs", false).group(sgGeneral);
-    private final BoolSetting animals = boolSetting("Animals", false).group(sgGeneral);
     private final IntSetting maxTargets = intSetting("Max Targets", 4, 1, 10, 1).group(sgGeneral);
     private final DoubleSetting targetRange = doubleSetting("Target Range", 16.0, 0.0, 32.0, 0.5).group(sgGeneral);
     private final DoubleSetting yawSpeed = doubleSetting("Yaw Speed", 45.0, 5.0, 180.0, 5.0).group(sgGeneral);
@@ -540,9 +538,9 @@ public class ZealotCrystalPlus extends Module {
         List<LivingEntity> targets = Managers.TARGET.acquireTargets(TargetRequest.of(
                 targetRange.getValue(),
                 360.0f,
-                players.getValue(),
-                mobs.getValue(),
-                animals.getValue(),
+                ClientSetting.INSTANCE.targetPlayer.getValue(),
+                ClientSetting.INSTANCE.targetMob.getValue(),
+                ClientSetting.INSTANCE.targetAnimal.getValue(),
                 false,
                 true,
                 living -> living.position().y > -64.0,

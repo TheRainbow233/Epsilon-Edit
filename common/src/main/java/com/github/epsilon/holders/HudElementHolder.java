@@ -39,6 +39,7 @@ public class HudElementHolder {
         addElement(ScaffoldBlock.INSTANCE);
         addElement(TargetHUD.INSTANCE);
         addElement(Watermark.INSTANCE);
+        addElement(CustomScoreboard.INSTANCE);
     }
 
     private void addElement(HudModule module) {

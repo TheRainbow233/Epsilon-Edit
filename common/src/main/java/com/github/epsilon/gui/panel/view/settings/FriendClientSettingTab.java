@@ -144,13 +144,37 @@ public class FriendClientSettingTab implements ClientSettingTabView {
         return contentState.hasActiveAnimations() || hoveringRows || inputField.hasActiveAnimations();
     }
 
+    public boolean isTextHovered(int mouseX, int mouseY) {
+        if (bounds == null) return false;
+        return getInputBounds(bounds).contains(mouseX, mouseY);
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
-        if (bounds == null || event.button() != 0) {
-            return false;
-        }
+        if (bounds == null) return false;
+        int btn = event.button();
 
         scrollVelocity = 0;
+
+        UiRect inputBounds = getInputBounds(bounds);
+        boolean hoveringInput = inputBounds.contains(event.x(), event.y());
+
+        // Context menu handling
+        if (inputField.isContextMenuOpen()) {
+            if (inputField.contextMenuClicked(event.x(), event.y(), btn)) { markDirty(); return true; }
+            inputField.closeContextMenu(); markDirty(); return true;
+        }
+
+        // Right-click → context menu
+        if (btn == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hoveringInput) {
+            inputField.rightClicked(inputBounds, event.x(), event.y(), btn);
+            markDirty();
+            return true;
+        }
+
+        if (inputField.isContextMenuOpen()) { inputField.closeContextMenu(); markDirty(); }
+
+        if (btn != 0) return false;
 
         UiRect listViewport = getListViewport(bounds);
         float maxScroll = state.getMaxFriendScroll();
@@ -163,8 +187,8 @@ public class FriendClientSettingTab implements ClientSettingTabView {
             return true;
         }
 
-        UiRect inputBounds = getInputBounds(bounds);
-        if (inputField.focusIfContains(inputBounds, event.x(), event.y())) {
+        if (hoveringInput) {
+            inputField.mousePressed(inputBounds, event.x(), event.y(), btn);
             markDirty();
             return true;
         }
@@ -183,25 +207,26 @@ public class FriendClientSettingTab implements ClientSettingTabView {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        if (scrollBarDrag.mouseReleased()) {
-            markDirty();
-            return true;
-        }
+        if (scrollBarDrag.mouseReleased()) { markDirty(); return true; }
+        if (bounds == null) return false;
+        UiRect inputBounds = getInputBounds(bounds);
+        if (inputField.mouseReleased(inputBounds, event.x(), event.y(), event.button())) { markDirty(); return true; }
         return false;
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double mouseX, double mouseY) {
-        if (!scrollBarDrag.isDragging()) {
-            return false;
+        if (scrollBarDrag.isDragging()) {
+            UiRect listViewport = getListViewport(bounds);
+            float newScroll = scrollBarDrag.mouseDragged(event.y(), listViewport, state.getMaxFriendScroll());
+            if (newScroll >= 0.0f) state.setFriendScroll(newScroll);
+            markDirty();
+            return true;
         }
-        UiRect listViewport = getListViewport(bounds);
-        float newScroll = scrollBarDrag.mouseDragged(event.y(), listViewport, state.getMaxFriendScroll());
-        if (newScroll >= 0.0f) {
-            state.setFriendScroll(newScroll);
-        }
-        markDirty();
-        return true;
+        if (bounds == null) return false;
+        UiRect inputBounds = getInputBounds(bounds);
+        if (inputField.mouseDragged(inputBounds, event.x(), event.y())) { markDirty(); return true; }
+        return false;
     }
 
     @Override

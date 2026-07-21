@@ -4,7 +4,8 @@ import com.github.epsilon.events.bus.EventBus;
 import com.github.epsilon.events.bus.EventHandler;
 import com.github.epsilon.events.impl.ClientTickEvent;
 import com.github.epsilon.managers.Managers;
-import com.github.epsilon.modules.impl.combat.AntiBot;
+import com.github.epsilon.modules.impl.misc.AntiBot;
+import com.github.epsilon.modules.impl.misc.Teams;
 import com.github.epsilon.utils.rotation.RotationUtils;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -116,6 +117,7 @@ public class TargetManager {
         switch (entity) {
             case Player player -> {
                 if (Managers.FRIEND.isFriend(player)) return false;
+                if (Teams.isTeam(player)) return false;
                 if (!request.player()) return false;
                 if (entity.isInvisible() && !request.invisible()) return false;
             }

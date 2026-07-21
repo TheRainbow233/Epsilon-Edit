@@ -22,6 +22,7 @@ public class SettingViewFactory {
             case StringSetting stringSetting -> new StringSettingRow(stringSetting);
             case ButtonSetting buttonSetting -> new ButtonSettingRow(buttonSetting);
             case StringListSetting stringListSetting -> new StringListSettingRow(stringListSetting);
+            case MultiEnumSetting<?> multiEnumSetting -> new MultiEnumSettingRow(multiEnumSetting);
             case null, default -> null;
         };
     }

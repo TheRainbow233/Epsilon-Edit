@@ -7,6 +7,7 @@ import com.github.epsilon.managers.Managers;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.IntSetting;
@@ -27,12 +28,6 @@ public class SilentAim extends Module {
     }
 
     private final BoolSetting weaponOnly = boolSetting("Weapon Only", false);
-
-    private final BoolSetting player = boolSetting("Player", true);
-    private final BoolSetting mob = boolSetting("Mob", false);
-    private final BoolSetting animal = boolSetting("Animal", false);
-    private final BoolSetting villagers = boolSetting("Villagers", false);
-    private final BoolSetting invisible = boolSetting("Invisible", false);
 
     private final DoubleSetting range = doubleSetting("Range", 3.0, 1.0, 6.0, 0.1);
     private final IntSetting fov = intSetting("FOV", 360, 10, 360, 1);
@@ -79,11 +74,11 @@ public class SilentAim extends Module {
         target = Managers.TARGET.acquirePrimary(TargetRequest.of(
                 range.getValue(),
                 fov.getValue(),
-                player.getValue(),
-                mob.getValue(),
-                animal.getValue(),
-                villagers.getValue(),
-                invisible.getValue(),
+                ClientSetting.INSTANCE.targetPlayer.getValue(),
+                ClientSetting.INSTANCE.targetMob.getValue(),
+                ClientSetting.INSTANCE.targetAnimal.getValue(),
+                ClientSetting.INSTANCE.targetVillager.getValue(),
+                ClientSetting.INSTANCE.targetInvisible.getValue(),
                 1
         ));
 

@@ -42,18 +42,34 @@ public class StringWidget extends SettingWidget<StringSetting> {
         float fieldW = width - DropdownTheme.SETTING_PADDING_X * 2.0f;
         float fieldH = DropdownTheme.INPUT_HEIGHT;
 
+        // Right-click context menu
+        if (inputField.rightClicked(mouseX, mouseY, button)) return true;
+
+        // Context menu click
+        if (inputField.isContextMenuOpen() && inputField.contextMenuClicked(mouseX, mouseY, button)) return true;
+
         if (button == 0 && isHovered(mouseX, mouseY, fieldX, fieldY, fieldW, fieldH)) {
             if (!inputField.isFocused()) {
                 inputField.setText(setting.getValue());
             }
-            inputField.focusIfContains(mouseX, mouseY, fieldX, fieldY, fieldW, fieldH);
+            inputField.mousePressed(mouseX, mouseY, button);
             return true;
         }
         if (inputField.isFocused()) {
             commitSetting();
             inputField.blur();
         }
+        // Close context menu on outside click
+        if (inputField.isContextMenuOpen()) inputField.closeContextMenu();
         return false;
+    }
+
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        return inputField.mouseReleased(mouseX, mouseY, button);
+    }
+
+    public boolean mouseDragged(double mouseX, double mouseY) {
+        return inputField.mouseDragged(mouseX, mouseY);
     }
 
     @Override

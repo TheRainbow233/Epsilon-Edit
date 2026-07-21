@@ -64,6 +64,8 @@ public class DropdownScreen extends Screen {
     private UiRenderBatch dropdownBatch;
     private UiTree.Scope dropdownScope;
     private int dropdownLayer;
+    private long ibeamCursor;
+    private boolean ibeamCursorActive;
 
     private DropdownScreen() {
         super(Component.literal("DropdownGui"));
@@ -76,6 +78,10 @@ public class DropdownScreen extends Screen {
         scrimAnim.setStartValue(0.0f);
         scrimAnim.run(0.0f);
         scrimAnim.run(1.0f);
+
+        if (ibeamCursor == 0L) {
+            ibeamCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_IBEAM_CURSOR);
+        }
 
         if (!initialized) {
             buildPanels();
@@ -196,6 +202,18 @@ public class DropdownScreen extends Screen {
         float searchX = getSearchX();
         float searchY = getSearchY();
         searchField.draw(dropdownScope, uiTextMetrics, searchX, searchY, getSearchWidth(), getSearchHeight(), mouseX, mouseY, EpsilonTranslations.Gui.SEARCH.getTranslatedName(), 0.58f);
+        // I-beam cursor management
+        if (searchField.isHovering(mouseX, mouseY)) {
+            if (!ibeamCursorActive && ibeamCursor != 0L) {
+                GLFW.glfwSetCursor(minecraft.getWindow().handle(), ibeamCursor);
+                ibeamCursorActive = true;
+            }
+        } else {
+            if (ibeamCursorActive) {
+                GLFW.glfwSetCursor(minecraft.getWindow().handle(), 0L);
+                ibeamCursorActive = false;
+            }
+        }
         drawHints();
         flushDropdownLayer();
     }
@@ -273,9 +291,25 @@ public class DropdownScreen extends Screen {
             return true;
         }
 
-        if (button == 0 && searchField.focusIfContains(mx, my, getSearchX(), getSearchY(), getSearchWidth(), getSearchHeight())) {
-            return true;
-        } else if (button == 0 && searchField.isFocused()) {
+        // Context menu handling for search field
+        if (searchField.isContextMenuOpen()) {
+            if (searchField.contextMenuClicked(mx, my, button)) return true;
+            // Click outside menu → close it
+            if (button != 0) { searchField.closeContextMenu(); return true; }
+        }
+
+        // Right-click on search field → context menu
+        if (searchField.rightClicked(mx, my, button)) return true;
+
+        // Click outside search → close context menu
+        if (searchField.isContextMenuOpen() && !searchField.isHovering(mx, my)) {
+            searchField.closeContextMenu();
+        }
+
+        // Mouse press on search → begin selection
+        if (searchField.mousePressed(mx, my, button)) return true;
+        // Click outside search when focused → blur
+        if (button == 0 && searchField.isFocused() && !searchField.isHovering(mx, my)) {
             searchField.blur();
         }
 
@@ -305,6 +339,9 @@ public class DropdownScreen extends Screen {
             return true;
         }
 
+        // End text selection
+        if (searchField.mouseReleased(mx, my, button)) return true;
+
         for (DropdownPanel panel : panels) {
             if (!panel.isVisible()) continue;
             if (panel.mouseReleased(mx, my, button)) {
@@ -323,6 +360,8 @@ public class DropdownScreen extends Screen {
         if (popupHost.mouseDragged(epsilonEvent, epsilonMouseX, epsilonMouseY)) {
             return true;
         }
+        // Text selection drag
+        if (searchField.mouseDragged(epsilonMouseX, epsilonMouseY)) return true;
         boolean handled = false;
         for (DropdownPanel panel : panels) {
             if (!panel.isVisible()) continue;
@@ -436,8 +475,13 @@ public class DropdownScreen extends Screen {
         super.removed();
         popupHost.close();
         searchField.blur();
+        searchField.closeContextMenu();
         IMEFocusHelper.forceDeactivate();
         preeditOverlay = null;
+        if (ibeamCursorActive) {
+            GLFW.glfwSetCursor(minecraft.getWindow().handle(), 0L);
+            ibeamCursorActive = false;
+        }
     }
 
     @Override

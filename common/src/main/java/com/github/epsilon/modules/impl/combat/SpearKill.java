@@ -6,6 +6,7 @@ import com.github.epsilon.managers.Managers;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.EnumSetting;
@@ -40,11 +41,6 @@ public class SpearKill extends Module {
     private final BoolSetting stopOnTarget = boolSetting("Stop On Target", true);
     private final BoolSetting autoSwitch = boolSetting("Auto Switch", true);
     private final BoolSetting rotate = boolSetting("Rotate", true);
-    private final BoolSetting players = boolSetting("Players", true);
-    private final BoolSetting mobs = boolSetting("Mobs", false);
-    private final BoolSetting animals = boolSetting("Animals", false);
-    private final BoolSetting villagers = boolSetting("Villagers", false);
-    private final BoolSetting invisible = boolSetting("Invisible", true);
 
     public LivingEntity killtarget;
     private boolean currentlyCharging;
@@ -107,11 +103,11 @@ public class SpearKill extends Module {
                     TargetRequest.of(
                             rangeValue,
                             360.0f,
-                            players.getValue(),
-                            mobs.getValue(),
-                            animals.getValue(),
-                            villagers.getValue(),
-                            invisible.getValue(),
+                            ClientSetting.INSTANCE.targetPlayer.getValue(),
+                            ClientSetting.INSTANCE.targetMob.getValue(),
+                            ClientSetting.INSTANCE.targetAnimal.getValue(),
+                            ClientSetting.INSTANCE.targetVillager.getValue(),
+                            ClientSetting.INSTANCE.targetInvisible.getValue(),
                             64
                     )
             );

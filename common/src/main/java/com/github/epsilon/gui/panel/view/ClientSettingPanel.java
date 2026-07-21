@@ -57,6 +57,10 @@ public class ClientSettingPanel implements AutoCloseable {
         tabIndicatorAnimation.setStartValue(getTabIndex(state.getClientSettingTab()));
     }
 
+    public boolean isTextHovered(int mouseX, int mouseY) {
+        return getCurrentTabView().isTextHovered(mouseX, mouseY);
+    }
+
     public void render(GuiGraphicsExtractor guiGraphics, UiRenderBatch renderBatch, UiRect bounds, int mouseX, int mouseY, float partialTick) {
         this.bounds = bounds;
 

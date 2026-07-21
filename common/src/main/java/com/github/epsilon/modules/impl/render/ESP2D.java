@@ -7,6 +7,7 @@ import com.github.epsilon.graphics.renderers.RectRenderer;
 import com.github.epsilon.managers.Managers;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.ColorSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
@@ -30,10 +31,7 @@ public class ESP2D extends Module {
         super("ESP 2D", Category.RENDER);
     }
 
-    private final BoolSetting players = boolSetting("Players", true);
     private final BoolSetting friends = boolSetting("Friends", true);
-    private final BoolSetting creatures = boolSetting("Creatures", false);
-    private final BoolSetting monsters = boolSetting("Monsters", false);
     private final BoolSetting ambients = boolSetting("Ambients", false);
     private final BoolSetting others = boolSetting("Others", false);
     private final BoolSetting renderHealth = boolSetting("Render Health", true);
@@ -65,12 +63,13 @@ public class ESP2D extends Module {
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof LivingEntity livingEntity) || !shouldRender(livingEntity)) continue;
 
+            if (!WorldToScreen.isInFrontOfCamera(entity, partialTick)) continue;
+
             Vector4d position = WorldToScreen.getEntityPositionsOn2D(livingEntity, partialTick);
             if (position == null || position.z < 0.0 || position.w < 0.0 || position.x > screenWidth || position.y > screenHeight)
                 continue;
 
-            final var projectedPosition = WorldToScreen.getWorldPositionToScreen(livingEntity.position());
-            if (projectedPosition.z > 1.0f || projectedPosition.z < 0.5f) continue;
+            if (position.w - position.y < 1.0) continue; // too small to draw
 
             float x = (float) position.x;
             float y = (float) position.y;
@@ -105,13 +104,13 @@ public class ESP2D extends Module {
         if (entity instanceof Player player) {
             if (entity == mc.player) return false;
             if (Managers.FRIEND.isFriend(player)) return friends.getValue();
-            return players.getValue();
+            return ClientSetting.INSTANCE.targetPlayer.getValue();
         }
 
         MobCategory category = entity.getType().getCategory();
         return switch (category) {
-            case CREATURE, WATER_CREATURE, AXOLOTLS, UNDERGROUND_WATER_CREATURE -> creatures.getValue();
-            case MONSTER -> monsters.getValue();
+            case CREATURE, WATER_CREATURE, AXOLOTLS, UNDERGROUND_WATER_CREATURE -> ClientSetting.INSTANCE.targetAnimal.getValue();
+            case MONSTER -> ClientSetting.INSTANCE.targetMob.getValue();
             case AMBIENT, WATER_AMBIENT -> ambients.getValue();
             default -> others.getValue();
         };

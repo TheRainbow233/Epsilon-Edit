@@ -6,10 +6,12 @@ import com.github.epsilon.gui.hudeditor.HudEditorScreen;
 import com.github.epsilon.gui.lib.UiTree;
 import com.github.epsilon.managers.Managers;
 import com.github.epsilon.settings.impl.DoubleSetting;
+import com.github.epsilon.settings.impl.EnumSetting;
 import com.github.epsilon.settings.impl.IntSetting;
 import com.github.epsilon.utils.render.animation.Easing;
 import com.google.common.base.Suppliers;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.util.Mth;
 
 import java.awt.*;
 import java.util.ArrayList;
@@ -20,9 +22,16 @@ public class Notifications extends HudModule {
 
     public static final Notifications INSTANCE = new Notifications();
 
+    public enum Style {
+        Legacy,
+        MD3
+    }
+
     private Notifications() {
         super("Notifications", 3.2f, 3.2f, DEFAULT_BOX_WIDTH, DEFAULT_BOX_HEIGHT);
     }
+
+    private final EnumSetting<Style> style = enumSetting("Style", Style.MD3);
 
     private final DoubleSetting scale = doubleSetting("Scale", 1.0, 0.5, 2.0, 0.05);
     private final DoubleSetting fontScale = doubleSetting("Font Scale", 0.80, 0.5, 2.0, 0.05);
@@ -48,6 +57,14 @@ public class Notifications extends HudModule {
         Notification previewNotification = createPreviewNotification();
         if (Managers.NOTIFICATION.isEmpty() && previewNotification == null) return;
 
+        if (style.is(Style.MD3)) {
+            renderMD3(deltaTracker, previewNotification);
+        } else {
+            renderLegacy(deltaTracker, previewNotification);
+        }
+    }
+
+    private void renderLegacy(DeltaTracker deltaTracker, Notification previewNotification) {
         TextRenderer textRenderer = textRendererSupplier.get();
         UiTree.Scope scope = renderScope();
 
@@ -86,6 +103,145 @@ public class Notifications extends HudModule {
         }
 
         setBounds(anchorWidth, boxHeight);
+    }
+
+    // --- MD3 Style ---
+
+    private static final float MD3_RADIUS = 10f;
+    private static final float MD3_PADDING_X = 12f;
+    private static final float MD3_PADDING_Y = 10f;
+    private static final float MD3_PROGRESS_HEIGHT = 3f;
+    private static final float MD3_PROGRESS_GAP = 6f;
+    private static final float MD3_ICON_SIZE = 16f;
+    private static final float MD3_ICON_GAP = 8f;
+    private static final float MD3_TITLE_SCALE = 0.68f;
+    private static final float MD3_SUBTITLE_SCALE = 0.54f;
+    private static final float MD3_LINE_GAP = 2f;
+    private static final float MD3_MIN_WIDTH = 100f;
+    private static final float MD3_MAX_WIDTH = 280f;
+    private static final Color MD3_SURFACE = new Color(30, 25, 35, 235);
+
+    private void renderMD3(DeltaTracker deltaTracker, Notification previewNotification) {
+        UiTree.Scope scope = renderScope();
+        TextRenderer textRenderer = textRendererSupplier.get();
+
+        float s = scale.getValue().floatValue();
+        float gap = ENTRY_GAP * s;
+
+        List<Notification> active = new ArrayList<>(Managers.NOTIFICATION.getNotifications());
+        if (active.isEmpty() && previewNotification != null) {
+            active.add(previewNotification);
+        }
+        if (active.isEmpty()) return;
+
+        // Measure all cards first to compute total height
+        float[] cardWidths = new float[active.size()];
+        float[] cardHeights = new float[active.size()];
+        float maxWidth = MD3_MIN_WIDTH * s;
+
+        for (int i = 0; i < active.size(); i++) {
+            Notification n = active.get(i);
+            float titleW = textRenderer.getWidth(n.getTitle(), MD3_TITLE_SCALE * s);
+            float subW = (n.getSubTitle() != null && !n.getSubTitle().isEmpty())
+                    ? textRenderer.getWidth(n.getSubTitle(), MD3_SUBTITLE_SCALE * s) : 0f;
+            float contentW = Math.max(titleW, subW);
+            float cardW = Mth.clamp(MD3_PADDING_X * 2f + MD3_ICON_SIZE + MD3_ICON_GAP + contentW + MD3_PADDING_X,
+                    MD3_MIN_WIDTH * s, MD3_MAX_WIDTH * s);
+            boolean hasSub = n.getSubTitle() != null && !n.getSubTitle().isEmpty();
+            float textH = textRenderer.getHeight(MD3_TITLE_SCALE * s)
+                    + (hasSub ? MD3_LINE_GAP * s + textRenderer.getHeight(MD3_SUBTITLE_SCALE * s) : 0f);
+            float cardH = MD3_PADDING_Y * 2f + MD3_PROGRESS_GAP + MD3_PROGRESS_HEIGHT + textH;
+            cardWidths[i] = cardW;
+            cardHeights[i] = Math.max(cardH, MD3_ICON_SIZE + MD3_PADDING_Y * 2f + MD3_PROGRESS_GAP + MD3_PROGRESS_HEIGHT);
+            maxWidth = Math.max(maxWidth, cardW);
+        }
+
+        float totalH = 0f;
+        for (float h : cardHeights) totalH += h + gap;
+        float currentY = getBaseY(totalH);
+
+        for (int i = 0; i < active.size(); i++) {
+            Notification notif = active.get(i);
+            float cardW = cardWidths[i];
+            float cardH = cardHeights[i];
+
+            long elapsed = notif.getElapsedTime();
+            int displayMs = notif.getDisplayTime();
+            float showProgress = Mth.clamp(elapsed / 200f, 0f, 1f);
+            float exitProgress = notif.isExiting() ? 1f - Mth.clamp(notif.getExitTime() / 250f, 0f, 1f) : 1f;
+            float alpha = Math.min(showProgress, exitProgress);
+            if (alpha <= 0.01f) continue;
+
+            float cardX = this.x;
+            if (getHorizontalAnchor() == HorizontalAnchor.Right) {
+                cardX = this.x + maxWidth - cardW;
+            }
+            float yOffset = (1f - alpha) * 16f;
+            float cardY = currentY + yOffset;
+
+            // Shadow
+            scope.shadow(cardX, cardY, cardW, cardH, MD3_RADIUS, 6f,
+                    new Color(0, 0, 0, (int)(60 * alpha)));
+
+            // Card background
+            scope.roundRect(cardX, cardY, cardW, cardH, MD3_RADIUS,
+                    new Color(MD3_SURFACE.getRed(), MD3_SURFACE.getGreen(), MD3_SURFACE.getBlue(),
+                            (int)(MD3_SURFACE.getAlpha() * alpha)));
+
+            // Progress bar
+            float progY = cardY + cardH - MD3_PADDING_Y + 2f;
+            float progW = cardW - MD3_PADDING_X * 2f;
+            // Background
+            scope.roundRect(cardX + MD3_PADDING_X, progY, progW, MD3_PROGRESS_HEIGHT, 1.5f,
+                    new Color(255, 255, 255, (int)(28 * alpha)));
+            // Fill
+            float progressRatio = 1f - Mth.clamp((float)elapsed / displayMs, 0f, 1f);
+            float progFillW = progW * progressRatio;
+            if (progFillW > 1f) {
+                Color modeColor = notif.getMode().getColor();
+                scope.roundRect(cardX + MD3_PADDING_X, progY, progFillW, MD3_PROGRESS_HEIGHT, 1.5f,
+                        new Color(modeColor.getRed(), modeColor.getGreen(), modeColor.getBlue(),
+                                (int)(220 * alpha)));
+            }
+
+            // Icon
+            Color modeColor = notif.getMode().getColor();
+            float iconY = cardY + MD3_PADDING_Y;
+            scope.roundRect(cardX + MD3_PADDING_X, iconY, MD3_ICON_SIZE, MD3_ICON_SIZE, MD3_ICON_SIZE / 2f,
+                    new Color(modeColor.getRed(), modeColor.getGreen(), modeColor.getBlue(),
+                            (int)(70 * alpha)));
+
+            String iconChar = switch (notif.getMode()) {
+                case Success -> "✓";
+                case Error -> "!";
+                default -> "i";
+            };
+            float iconScale = 0.58f;
+            float iconTextW = textRenderer.getWidth(iconChar, iconScale);
+            float iconTextH = textRenderer.getHeight(iconScale);
+            scope.text(iconChar,
+                    cardX + MD3_PADDING_X + (MD3_ICON_SIZE - iconTextW) / 2f,
+                    iconY + (MD3_ICON_SIZE - iconTextH) / 2f,
+                    iconScale,
+                    new Color(255, 255, 255, (int)(255 * alpha)));
+
+            // Text — no scissor needed since card is auto-sized
+            float textX = cardX + MD3_PADDING_X + MD3_ICON_SIZE + MD3_ICON_GAP;
+            float titleY = cardY + MD3_PADDING_Y;
+            scope.text(notif.getTitle(), textX, titleY, MD3_TITLE_SCALE * s,
+                    new Color(255, 255, 255, (int)(255 * alpha)));
+
+            String subTitle = notif.getSubTitle();
+            if (subTitle != null && !subTitle.isEmpty()) {
+                float subY = titleY + textRenderer.getHeight(MD3_TITLE_SCALE * s) + MD3_LINE_GAP * s;
+                scope.text(subTitle, textX, subY, MD3_SUBTITLE_SCALE * s,
+                        new Color(200, 195, 210, (int)(220 * alpha)));
+            }
+
+            currentY += cardH + gap;
+        }
+
+        setBounds(maxWidth, Math.max(MD3_ICON_SIZE + MD3_PADDING_Y * 2f + MD3_PROGRESS_GAP + MD3_PROGRESS_HEIGHT, totalH));
     }
 
     private float getSubTitleScale(float scale) {

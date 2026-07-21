@@ -26,6 +26,7 @@ public class TtfFontLoader implements IFontLoader {
 
     public final TtfFontFile fontFile;
     private float renderScale = 1.0f;
+    public volatile TtfFontLoader fallback;
 
     // ASCII 是 GUI/HUD 文本的主路径，用数组避免 Character 装箱和 HashMap 查找。
     private final GlyphDescriptor[] asciiGlyphMap = new GlyphDescriptor[ASCII_LIMIT];
@@ -128,6 +129,7 @@ public class TtfFontLoader implements IFontLoader {
     }
 
     private void requestMissingChars(String chars) {
+        TtfFontLoader fallbackLoader = this.fallback;
         for (int i = 0; i < chars.length(); ) {
             int codepoint = chars.codePointAt(i);
             i += Character.charCount(codepoint);
@@ -135,7 +137,26 @@ public class TtfFontLoader implements IFontLoader {
                 continue;
             }
 
-            putPendingGlyph(codepoint, CompletableFuture.supplyAsync(() -> fontFile.generateGlyph(codepoint), GLYPH_WORKER));
+            // Skip emoji-only codepoints (U+1F000+) — they need SystemEmojiAtlas for RGBA
+            if (codepoint >= 0x1F000) {
+                continue;
+            }
+
+            putPendingGlyph(codepoint, CompletableFuture.supplyAsync(() -> {
+                TtfGlyph glyph = fontFile.generateGlyph(codepoint);
+                // Primary STB font missing → try CJK STB fallback
+                if (fontFile.isMissingGlyph(codepoint) && fallbackLoader != null
+                        && !fallbackLoader.fontFile.isMissingGlyph(codepoint)) {
+                    glyph = fallbackLoader.fontFile.generateGlyph(codepoint);
+                }
+                // STB fallback also missing → try AWT system font fallback
+                if (fontFile.isMissingGlyph(codepoint)
+                        && (fallbackLoader == null || fallbackLoader.fontFile.isMissingGlyph(codepoint))) {
+                    TtfGlyph awtGlyph = AwtFallbackGlyph.generate(codepoint, fontFile);
+                    if (awtGlyph != null) glyph = awtGlyph;
+                }
+                return glyph;
+            }, GLYPH_WORKER));
         }
     }
 

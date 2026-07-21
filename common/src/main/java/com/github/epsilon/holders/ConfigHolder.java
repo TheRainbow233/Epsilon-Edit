@@ -526,6 +526,11 @@ public class ConfigHolder {
             return array;
         }
         if (setting instanceof EnumSetting s) return new JsonPrimitive(s.getValue().toString());
+        if (setting instanceof MultiEnumSetting<?> s) {
+            JsonArray array = new JsonArray();
+            for (Enum<?> e : s.getValue()) array.add(e.name());
+            return array;
+        }
         if (setting instanceof ColorSetting s) {
             Color c = s.getValue();
             return c == null ? null : new JsonPrimitive(c.getRGB());
@@ -549,6 +554,10 @@ public class ConfigHolder {
                     s.setIds(ids);
                     return;
                 }
+                if (setting instanceof MultiEnumSetting<?> s) {
+                    applyMultiEnumSetting(s, ids);
+                    return;
+                }
                 return;
             }
             if (!value.isJsonPrimitive()) return;
@@ -568,6 +577,21 @@ public class ConfigHolder {
             }
         } catch (Exception ignored) {
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static void applyMultiEnumSetting(MultiEnumSetting<?> setting, List<String> names) {
+        Enum<?>[] constants = setting.getConstants();
+        java.util.LinkedHashSet<Enum<?>> selected = new java.util.LinkedHashSet<>();
+        for (String name : names) {
+            for (Enum<?> c : constants) {
+                if (c.name().equals(name)) {
+                    selected.add(c);
+                    break;
+                }
+            }
+        }
+        setting.setValueRaw(selected);
     }
 
     private static JsonObject getObject(JsonObject parent, String key) {

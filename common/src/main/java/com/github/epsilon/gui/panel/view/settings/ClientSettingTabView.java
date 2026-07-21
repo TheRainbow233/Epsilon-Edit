@@ -33,6 +33,10 @@ public interface ClientSettingTabView extends AutoCloseable {
         return false;
     }
 
+    default boolean isTextHovered(int mouseX, int mouseY) {
+        return false;
+    }
+
     default void onActivated() {
     }
 

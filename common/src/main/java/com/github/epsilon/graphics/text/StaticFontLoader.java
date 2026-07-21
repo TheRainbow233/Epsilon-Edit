@@ -30,6 +30,36 @@ public class StaticFontLoader {
 
     public static final TtfFontLoader OSAKA_CHIPS = new TtfFontLoader(ResourceLocationUtils.getIdentifier("fonts/osakachips.ttf"));
 
+    /** CJK fallback loaded from the system font directory. May be null if no CJK font found. */
+    public static final TtfFontLoader CJK_FALLBACK = findCjkFallback();
+
+    static {
+        if (CJK_FALLBACK != null) {
+            builtinDefault.fallback = CJK_FALLBACK;
+        }
+    }
+
+    private static TtfFontLoader findCjkFallback() {
+        String[] candidatePaths = {
+            "C:/Windows/Fonts/msyh.ttc",       // Windows: Microsoft YaHei
+            "C:/Windows/Fonts/msyhbd.ttc",     // Windows: MS YaHei Bold (fallback)
+            "C:/Windows/Fonts/NotoSansSC-VF.ttf", // Windows 11: Noto Sans SC
+            "/System/Library/Fonts/PingFang.ttc", // macOS
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", // Linux
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        };
+        for (String path : candidatePaths) {
+            try {
+                java.nio.file.Path p = java.nio.file.Path.of(path);
+                if (java.nio.file.Files.exists(p)) {
+                    return new TtfFontLoader(p);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
     private static TtfFontLoader customDefault;
     private static Path customDefaultPath;
     private static ClientSetting.FontMode appliedMode;

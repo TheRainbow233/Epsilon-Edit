@@ -25,6 +25,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.PreeditEvent;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * 面板 UI 的主屏幕宿主。
@@ -57,6 +58,8 @@ public class PanelScreen extends Screen {
     private long lastI18nRevision = Long.MIN_VALUE;
 
     private IMEPreeditOverlay preeditOverlay;
+    private long ibeamCursor;
+    private boolean ibeamCursorActive;
 
     private LuminRenderSystem.LuminRenderTarget renderTarget;
 
@@ -67,6 +70,14 @@ public class PanelScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    protected void init() {
+        super.init();
+        if (ibeamCursor == 0L) {
+            ibeamCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_IBEAM_CURSOR);
+        }
     }
 
     /**
@@ -169,6 +180,21 @@ public class PanelScreen extends Screen {
             this.preeditOverlay.updateInputPosition((int) IMEFocusHelper.activeCursorX, (int) IMEFocusHelper.activeCursorY);
             guiGraphics.setPreeditOverlay(this.preeditOverlay);
         }
+        // I-beam cursor management
+        boolean hoveringText = moduleListPanel.isTextHovered(panelMouseX, panelMouseY)
+                || clientSettingPanel.isTextHovered(panelMouseX, panelMouseY);
+        if (hoveringText) {
+            if (!ibeamCursorActive && ibeamCursor != 0L) {
+                GLFW.glfwSetCursor(minecraft.getWindow().handle(), ibeamCursor);
+                ibeamCursorActive = true;
+            }
+        } else {
+            if (ibeamCursorActive) {
+                GLFW.glfwSetCursor(minecraft.getWindow().handle(), 0L);
+                ibeamCursorActive = false;
+            }
+        }
+
         guiGraphics.blit(renderTarget.getIdentifier(), 0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight(), 0, 1, 1, 0);
         popupHost.extractOverlay(guiGraphics, epsilonMouseX, epsilonMouseY, partialTick);
     }
@@ -348,6 +374,10 @@ public class PanelScreen extends Screen {
         moduleDetailPanel.resetTransientState();
         clientSettingPanel.resetTransientState();
         state.setListeningKeyBindModule(null);
+        if (ibeamCursorActive) {
+            GLFW.glfwSetCursor(minecraft.getWindow().handle(), 0L);
+            ibeamCursorActive = false;
+        }
         state.setListeningKeybindSetting(null);
         IMEFocusHelper.forceDeactivate();
         preeditOverlay = null;

@@ -6,6 +6,7 @@ import com.github.epsilon.managers.Managers;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.EnumSetting;
@@ -52,11 +53,6 @@ public class MaceAura extends Module {
     private final BoolSetting cooldown = boolSetting("Cooldown", true);
     private final DoubleSetting cooldownBase = doubleSetting("Cooldown Base", 0.75, 0.1, 1.0, 0.05, cooldown::getValue);
     private final IntSetting attackDelay = intSetting("Attack Delay", 50, 1, 2000, 1, () -> !cooldown.getValue());
-    private final BoolSetting players = boolSetting("Players", true);
-    private final BoolSetting animals = boolSetting("Animals", false);
-    private final BoolSetting mobs = boolSetting("Mobs", false);
-    private final BoolSetting villagers = boolSetting("Villagers", false);
-
     public LivingEntity target;
     private final TimerUtils attackTimer = new TimerUtils();
 
@@ -76,10 +72,10 @@ public class MaceAura extends Module {
         target = Managers.TARGET.acquirePrimary(TargetRequest.of(
                 range.getValue(),
                 360.0f,
-                players.getValue(),
-                mobs.getValue(),
-                animals.getValue(),
-                villagers.getValue(),
+                ClientSetting.INSTANCE.targetPlayer.getValue(),
+                ClientSetting.INSTANCE.targetMob.getValue(),
+                ClientSetting.INSTANCE.targetAnimal.getValue(),
+                ClientSetting.INSTANCE.targetVillager.getValue(),
                 true,
                 64
         ));

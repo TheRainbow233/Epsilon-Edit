@@ -17,6 +17,11 @@ import com.github.epsilon.settings.SettingGroup;
 import com.github.epsilon.settings.impl.*;
 import com.mojang.blaze3d.platform.IconSet;
 import net.minecraft.SharedConstants;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.animal.Animal;
+import net.minecraft.world.entity.monster.Monster;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.entity.player.Player;
 import org.lwjgl.glfw.GLFW;
 
 import java.awt.*;
@@ -82,6 +87,7 @@ public class ClientSetting extends Module {
     }
 
     private final SettingGroup sgGeneral = settingGroup("General");
+    private final SettingGroup sgTarget = settingGroup("Target Entity");
     private final SettingGroup sgAntiCheat = settingGroup("Anti Cheat");
     private final SettingGroup sgAppearance = settingGroup("Appearance");
     private final SettingGroup sgNotification = settingGroup("Notification");
@@ -129,6 +135,13 @@ public class ClientSetting extends Module {
     public final BoolSetting closeOnOutside = boolSetting("Close Gui On Outside", false, () -> guiMode.is(GuiMode.Panel)).group(sgGeneral);
 
     public final BoolSetting dropdownHints = boolSetting("Dropdown Hints", true, () -> guiMode.is(GuiMode.Dropdown)).group(sgGeneral);
+
+    // Target Entity
+    public final BoolSetting targetPlayer = boolSetting("Player", true).group(sgTarget);
+    public final BoolSetting targetMob = boolSetting("Mob", false).group(sgTarget);
+    public final BoolSetting targetAnimal = boolSetting("Animal", false).group(sgTarget);
+    public final BoolSetting targetVillager = boolSetting("Villager", false).group(sgTarget);
+    public final BoolSetting targetInvisible = boolSetting("Invisible", false).group(sgTarget);
 
     // Anti Cheat
     public final EnumSetting<RotationManager.RotationMode> rotationMode =
@@ -198,6 +211,27 @@ public class ClientSetting extends Module {
 
     public boolean silentRotation() {
         return rotationMode.is(RotationManager.RotationMode.SILENT);
+    }
+
+    /**
+     * Check if an entity passes the global target type filters.
+     * Used by all combat modules to share target entity preferences.
+     */
+    public static boolean isGlobalTarget(LivingEntity entity) {
+        return switch (entity) {
+            case Player _ -> INSTANCE.targetPlayer.getValue();
+            case Monster _ -> INSTANCE.targetMob.getValue();
+            case Animal _ -> INSTANCE.targetAnimal.getValue();
+            case Villager _ -> INSTANCE.targetVillager.getValue();
+            default -> false;
+        };
+    }
+
+    /**
+     * Check if an invisible entity should be targeted.
+     */
+    public static boolean canTargetInvisible() {
+        return INSTANCE.targetInvisible.getValue();
     }
 
 }

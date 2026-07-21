@@ -118,6 +118,7 @@ public class Scaffold extends Module {
     private final IntSetting rotateBackSpeed = intSetting("Rotation Back Speed", 10, 1, 10, 1, () -> mode.is(Mode.TellyBridge));
     private final IntSetting tellyTicks = intSetting("Telly Ticks", 1, 0, 6, 1, () -> mode.is(Mode.TellyBridge));
 
+    private final BoolSetting edgeSneak = boolSetting("Edge Sneak", true);
     private final BoolSetting swingHand = boolSetting("Swing Hand", true);
     private final BoolSetting render = boolSetting("Render", true);
     private final BoolSetting fade = boolSetting("Fade", true, render::getValue);
@@ -274,8 +275,16 @@ public class Scaffold extends Module {
 
     @EventHandler
     private void onMoveInput(KeyboardInputEvent event) {
-        if (mc.player.onGround() && !mc.options.keyJump.isDown() && mc.player.isMoving() && mode.is(Mode.TellyBridge)) {
-            event.setJump(true);
+        if (mc.player.onGround() && mc.player.isMoving()) {
+            // Edge sneak: force crouch at platform edge to prevent falling
+            if (edgeSneak.getValue() && isAtEdge()) {
+                event.setSneak(true);
+                return;
+            }
+            // TellyBridge jump
+            if (mode.is(Mode.TellyBridge) && !mc.options.keyJump.isDown()) {
+                event.setJump(true);
+            }
         }
     }
 
@@ -490,6 +499,20 @@ public class Scaffold extends Module {
         }
 
         return calculated;
+    }
+
+    /**
+     * Detects if the player is at an edge — the block below where they're walking
+     * forward is air, meaning they'd fall if they kept moving.
+     */
+    private boolean isAtEdge() {
+        double[] dir = com.github.epsilon.utils.player.MoveUtils.forward(0.35);
+        BlockPos forwardPos = BlockPos.containing(
+                mc.player.getX() + dir[0],
+                mc.player.getY() - 1,
+                mc.player.getZ() + dir[1]
+        );
+        return mc.level.getBlockState(forwardPos).isAir();
     }
 
     private boolean onAir() {

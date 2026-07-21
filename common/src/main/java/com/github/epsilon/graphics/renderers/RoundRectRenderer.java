@@ -18,7 +18,7 @@ import java.util.OptionalDouble;
 
 public class RoundRectRenderer implements IRenderer {
 
-    private static final long BUFFER_SIZE = 16 * 1024;
+    private static final long BUFFER_SIZE = 128 * 1024;
     private static final int STRIDE = 48;
     private static final long RECT_BYTES = STRIDE * 4L;
     private final LuminRingBuffer buffer = new LuminRingBuffer(BUFFER_SIZE, GpuBuffer.USAGE_VERTEX);

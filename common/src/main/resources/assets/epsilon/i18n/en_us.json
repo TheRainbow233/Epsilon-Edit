@@ -5,7 +5,8 @@
       "combat": "Combat",
       "player": "Player",
       "movement": "Movement",
-      "render": "Render"
+      "render": "Render",
+      "misc": "Misc"
     },
     "keybind": {
       "none": "None",
@@ -262,6 +263,12 @@
         "replace minecraft font": "Replace Minecraft Font",
         "close gui on outside": "Close Gui On Outside",
         "dropdown hints": "Dropdown Hints",
+        "target entity": "Target Entity",
+        "target player": "Player",
+        "target mob": "Mob",
+        "target animal": "Animal",
+        "target villager": "Villager",
+        "target invisible": "Invisible",
         "rotation mode": {
           "_value": "Rotation Mode",
           "silent": "Silent",
@@ -339,7 +346,12 @@
         "ignore walls": "Ignore Walls",
         "reaction time": "Reaction Time",
         "ignore invis": "Ignore Invis",
-        "predict ticks": "Predict Ticks"
+        "predict ticks": "Predict Ticks",
+        "bow fov": "Bow FOV",
+        "bow range": "Bow Range",
+        "bow smooth": "Bow Smooth",
+        "bow through walls": "Bow Through Walls",
+        "bow client rotation": "Bow Client Rotation"
       },
       "anchor blast": {
         "_value": "Anchor Blast",
@@ -348,7 +360,53 @@
         "place cps": "Place CPS",
         "charge cps": "Charge CPS"
       },
-      "anti bot": "Anti Bot",
+      "anti bot": {
+        "_value": "Anti Bot",
+        "mode": {
+          "_value": "Mode",
+          "custom": "Custom",
+          "horizon": "Horizon",
+          "intaveheavy": "IntaveHeavy",
+          "matrix": "Matrix"
+        },
+        "literal npc": "Literal NPC",
+        "not in tab list": "NotInTabList",
+        "invalid ground": "Invalid Ground",
+        "invalid ground vl": "Invalid Ground VL",
+        "always in radius": "Always In Radius",
+        "radius range": "Radius Range",
+        "age check": "Age Check",
+        "age minimum": "Age Minimum",
+        "armor check": "Armor Check",
+        "name check": "Name Check",
+        "name setting": "Name Setting",
+        "name min length": "Name Min Length",
+        "name max length": "Name Max Length",
+        "conditions": {
+          "_value": "Conditions",
+          "no_game_mode": "No GameMode",
+          "illegal_pitch": "Illegal Pitch",
+          "fake_entity_id": "Fake EntityID",
+          "duplicate": "Duplicate",
+          "need_hit": "Need Hit",
+          "illegal_health": "Illegal Health",
+          "swung": "Swung",
+          "critted": "Critted",
+          "attributes": "Attributes",
+          "illegal_scale": "Illegal Scale"
+        }
+      },
+      "teams": {
+        "_value": "Teams",
+        "scoreboard team": "Scoreboard Team",
+        "armor": "Armor",
+        "name color": "Name Color",
+        "armor color": "Armor Color",
+        "check head": "Check Head",
+        "check chest": "Check Chest",
+        "check legs": "Check Legs",
+        "check feet": "Check Feet"
+      },
       "auto clicker": {
         "_value": "Auto Clicker",
         "button": {
@@ -1257,6 +1315,7 @@
         },
         "swap back": "Swap Back",
         "skip ticks": "Skip Ticks",
+        "edge sneak": "Edge Sneak",
         "snap": "Snap",
         "rotation mode": {
           "_value": "Rotation Mode",
@@ -1622,8 +1681,7 @@
         "background color": "Background Color",
         "vanilla name tags": "Vanilla Name Tags",
         "show equipment": "Show Equipment",
-        "show hands": "Show Hands",
-        "show self": "Show Self"
+        "show hands": "Show Hands"
       },
       "no render": {
         "_value": "No Render",
@@ -1954,6 +2012,7 @@
       },
       "watermark": {
         "_value": "Watermark",
+        "render text": "Render Text",
         "scale": "Scale",
         "text color": "Text Color"
       }

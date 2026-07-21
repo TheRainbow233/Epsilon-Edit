@@ -5,7 +5,8 @@
       "combat": "战斗",
       "player": "玩家",
       "movement": "移动",
-      "render": "渲染"
+      "render": "渲染",
+      "misc": "杂项"
     },
     "keybind": {
       "none": "无",
@@ -262,6 +263,12 @@
         "replace minecraft font": "替换 Minecraft 字体",
         "close gui on outside": "点击空白关闭 GUI",
         "dropdown hints": "瀑布式提示词",
+        "target entity": "目标实体",
+        "target player": "玩家",
+        "target mob": "怪物",
+        "target animal": "动物",
+        "target villager": "村民",
+        "target invisible": "隐身",
         "rotation mode": {
           "_value": "转头模式",
           "silent": "静默",
@@ -348,7 +355,80 @@
         "place cps": "放置CPS",
         "charge cps": "充能CPS"
       },
-      "anti bot": "反人机",
+      "anti bot": {
+        "_value": "反机器人",
+        "mode": {
+          "_value": "模式",
+          "custom": "自定义",
+          "horizon": "Horizon",
+          "intaveheavy": "IntaveHeavy",
+          "matrix": "Matrix"
+        },
+        "literal npc": "字面NPC",
+        "not in tab list": "不在Tab列表",
+        "invalid ground": "无效地面",
+        "invalid ground vl": "无效地面VL",
+        "always in radius": "始终在范围内",
+        "radius range": "范围半径",
+        "age check": "生成时间",
+        "age minimum": "最小Tick",
+        "armor check": "盔甲检测",
+        "name check": "名称检测",
+        "name setting": "名称检测设置",
+        "name min length": "名称最小长度",
+        "name max length": "名称最大长度",
+        "conditions": {
+          "_value": "检测条件",
+          "no_game_mode": "无游戏模式",
+          "illegal_pitch": "非法俯仰角",
+          "fake_entity_id": "假实体ID",
+          "duplicate": "重复",
+          "need_hit": "需被击中",
+          "illegal_health": "非法生命值",
+          "swung": "挥手",
+          "critted": "暴击",
+          "attributes": "属性",
+          "illegal_scale": "非法尺寸"
+        }
+      },
+      "teams": {
+        "_value": "队友",
+        "scoreboard team": "计分板队伍",
+        "name color": "名字颜色",
+        "armor": "护甲",
+        "armor color": "盔甲颜色",
+        "check head": "检查头盔",
+        "check chest": "检查胸甲",
+        "check legs": "检查护腿",
+        "check feet": "检查靴子"
+      },
+      "aim bot": {
+        "_value": "瞄准辅助",
+        "mode": {
+          "_value": "模式",
+          "aimassist": "瞄准辅助",
+          "bowaim": "弓箭瞄准"
+        },
+        "rotation": {
+          "_value": "旋转模式",
+          "client": "客户端",
+          "silent": "静默"
+        },
+        "aim strength": "瞄准强度",
+        "aim smooth": "瞄准平滑",
+        "aim time": "瞄准时间",
+        "only weapon": "仅武器",
+        "lmb activation": "左键激活",
+        "ignore walls": "无视墙壁",
+        "reaction time": "反应时间",
+        "ignore invis": "无视隐身",
+        "predict ticks": "预测刻数",
+        "bow fov": "弓箭视野",
+        "bow range": "弓箭范围",
+        "bow smooth": "弓箭平滑",
+        "bow through walls": "弓箭穿墙",
+        "bow client rotation": "弓箭客户端视角"
+      },
       "auto clicker": {
         "_value": "连点器",
         "button": {
@@ -1257,6 +1337,7 @@
         },
         "swap back": "停用还原",
         "skip ticks": "跳过刻数",
+        "edge sneak": "边缘潜行",
         "snap": "吸附",
         "rotation mode": {
           "_value": "旋转模式",
@@ -1622,8 +1703,7 @@
         "background color": "背景颜色",
         "vanilla name tags": "显示原版名字标签",
         "show equipment": "显示装备",
-        "show hands": "显示手部",
-        "show self": "显示自己"
+        "show hands": "显示手部"
       },
       "no render": {
         "_value": "移除渲染",
@@ -1954,6 +2034,7 @@
       },
       "watermark": {
         "_value": "水印",
+        "render text": "显示文本",
         "scale": "缩放",
         "text color": "文本颜色"
       }

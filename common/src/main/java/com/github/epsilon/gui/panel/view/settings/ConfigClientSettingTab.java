@@ -170,13 +170,39 @@ public class ConfigClientSettingTab implements ClientSettingTabView {
         return popupHost.getActivePopup() != null && popupHost.getActivePopup().getBounds().contains(mouseX, mouseY);
     }
 
+    public boolean isTextHovered(int mouseX, int mouseY) {
+        if (bounds == null) return false;
+        return getInputFieldBounds(getInputSectionBounds(bounds)).contains(mouseX, mouseY);
+    }
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
-        if (bounds == null || event.button() != 0) {
-            return false;
-        }
+        if (bounds == null) return false;
+        int btn = event.button();
 
         scrollVelocity = 0;
+
+        UiRect inputSection = getInputSectionBounds(bounds);
+        UiRect inputBounds = getInputFieldBounds(inputSection);
+        boolean hoveringInput = inputBounds.contains(event.x(), event.y());
+
+        // Context menu handling
+        if (inputField.isContextMenuOpen()) {
+            if (inputField.contextMenuClicked(event.x(), event.y(), btn)) { markDirty(); return true; }
+            inputField.closeContextMenu(); markDirty(); return true;
+        }
+
+        // Right-click on input → context menu
+        if (btn == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hoveringInput) {
+            inputField.rightClicked(inputBounds, event.x(), event.y(), btn);
+            markDirty();
+            return true;
+        }
+
+        // Close context menu on any click outside
+        if (inputField.isContextMenuOpen()) { inputField.closeContextMenu(); markDirty(); }
+
+        if (btn != 0) return false;
 
         UiRect listViewport = getListViewport(bounds);
         float maxScroll = state.getMaxConfigScroll();
@@ -189,10 +215,8 @@ public class ConfigClientSettingTab implements ClientSettingTabView {
             return true;
         }
 
-        UiRect inputSection = getInputSectionBounds(bounds);
-        UiRect inputBounds = getInputFieldBounds(inputSection);
-        if (inputBounds.contains(event.x(), event.y())) {
-            inputField.focusIfContains(inputBounds, event.x(), event.y());
+        if (hoveringInput) {
+            inputField.mousePressed(inputBounds, event.x(), event.y(), btn);
             markDirty();
             return true;
         }
@@ -225,25 +249,26 @@ public class ConfigClientSettingTab implements ClientSettingTabView {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        if (scrollBarDrag.mouseReleased()) {
-            markDirty();
-            return true;
-        }
+        if (scrollBarDrag.mouseReleased()) { markDirty(); return true; }
+        if (bounds == null) return false;
+        UiRect inputBounds = getInputFieldBounds(getInputSectionBounds(bounds));
+        if (inputField.mouseReleased(inputBounds, event.x(), event.y(), event.button())) { markDirty(); return true; }
         return false;
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double mouseX, double mouseY) {
-        if (!scrollBarDrag.isDragging()) {
-            return false;
+        if (scrollBarDrag.isDragging()) {
+            UiRect listViewport = getListViewport(bounds);
+            float newScroll = scrollBarDrag.mouseDragged(event.y(), listViewport, state.getMaxConfigScroll());
+            if (newScroll >= 0.0f) state.setConfigScroll(newScroll);
+            markDirty();
+            return true;
         }
-        UiRect listViewport = getListViewport(bounds);
-        float newScroll = scrollBarDrag.mouseDragged(event.y(), listViewport, state.getMaxConfigScroll());
-        if (newScroll >= 0.0f) {
-            state.setConfigScroll(newScroll);
-        }
-        markDirty();
-        return true;
+        if (bounds == null) return false;
+        UiRect inputBounds = getInputFieldBounds(getInputSectionBounds(bounds));
+        if (inputField.mouseDragged(inputBounds, event.x(), event.y())) { markDirty(); return true; }
+        return false;
     }
 
     @Override

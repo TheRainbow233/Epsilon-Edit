@@ -6,6 +6,7 @@ import com.github.epsilon.graphics.buffer.BufferUtils;
 import com.github.epsilon.graphics.buffer.LuminRingBuffer;
 import com.github.epsilon.graphics.text.GlyphDescriptor;
 import com.github.epsilon.graphics.text.ITextRenderer;
+import com.github.epsilon.graphics.text.SystemEmojiAtlas;
 import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.utils.render.ScissorUtils;
 import com.mojang.blaze3d.buffers.GpuBuffer;
@@ -18,6 +19,7 @@ import org.lwjgl.system.MemoryUtil;
 
 import java.awt.*;
 import java.util.*;
+import java.util.List;
 
 public class TtfTextRenderer implements ITextRenderer {
 
@@ -32,6 +34,7 @@ public class TtfTextRenderer implements ITextRenderer {
     private final long bufferSize;
 
     private final Map<TtfGlyphAtlas, Batch> batches = new LinkedHashMap<>();
+    private EmojiBatch emojiBatch;
     // 缓存与 scale 无关的布局数据，绘制时只做平移和缩放。
     private final Map<LayoutKey, TextLayout> layoutCache = new LinkedHashMap<>(64, 0.75f, true) {
         @Override
@@ -57,7 +60,7 @@ public class TtfTextRenderer implements ITextRenderer {
     }
 
     public TtfTextRenderer() {
-        this(64 * 1024);
+        this(256 * 1024);
     }
 
     @Override
@@ -114,6 +117,7 @@ public class TtfTextRenderer implements ITextRenderer {
         float spaceWidth = SPACE_WIDTH * fontScale;
         boolean complete = true;
         int glyphCount = 0;
+        List<float[]> emojiEntries = null;
 
         for (int i = 0; i < text.length(); ) {
             int codepoint = text.codePointAt(i);
@@ -127,6 +131,27 @@ public class TtfTextRenderer implements ITextRenderer {
                 xOffset = 0.0f;
                 yOffset += lineHeight;
                 continue;
+            }
+
+            // Emoji codepoint → use SystemEmojiAtlas
+            // isEmojiPresentation: default-emoji codepoints (😀🎉💯)
+            // isEmoji: broader set including keycap bases — skip ASCII to avoid false positives
+            if (codepoint > 127 && (Character.isEmojiPresentation(codepoint) || Character.isEmoji(codepoint))) {
+                String emojiStr = new String(Character.toChars(codepoint));
+                SystemEmojiAtlas.EmojiGlyph emojiGlyph = SystemEmojiAtlas.INSTANCE.get(emojiStr);
+                if (emojiGlyph != null) {
+                    float emojiSize = ascent * 1.25f;
+                    float x1 = xOffset;
+                    float x2 = x1 + emojiSize;
+                    float y1 = yOffset + ascent - emojiSize + emojiSize * 0.15f;
+                    float y2 = y1 + emojiSize;
+                    if (emojiEntries == null) emojiEntries = new ArrayList<>();
+                    emojiEntries.add(new float[]{x1, y1, x2, y2,
+                            emojiGlyph.u0(), emojiGlyph.v0(), emojiGlyph.u1(), emojiGlyph.v1()});
+                    xOffset += emojiSize + SPACING;
+                    glyphCount++;
+                    continue;
+                }
             }
 
             GlyphDescriptor glyph = fontLoader.getGlyph(codepoint);
@@ -156,18 +181,32 @@ public class TtfTextRenderer implements ITextRenderer {
             runs[index++] = builder.build();
         }
 
-        return new TextLayout(runs, glyphCount, maxLine, complete, revision, atlasRevision);
+        return new TextLayout(runs, glyphCount, maxLine, complete, revision, atlasRevision, emojiEntries);
     }
 
     private void emitLayout(TextLayout layout, float x, float y, float scale, int argb) {
-        if (layout.glyphCount == 0) return;
-
+        // TTF glyphs
         for (LayoutRun run : layout.runs) {
+            if (run.glyphCount == 0) continue;
             Batch batch = batchFor(run.atlas);
             long p = batch.beginWrite(run.glyphCount);
             float[] data = run.data;
             for (int i = 0; i < run.glyphCount; i++) {
                 writeGlyph(p, x, y, scale, data, i * LAYOUT_FLOATS_PER_GLYPH, argb, argb);
+                p += GLYPH_BYTES;
+            }
+        }
+
+        // Emoji glyphs — only if SystemEmojiAtlas has a valid texture
+        if (layout.emojiEntries != null && layout.emojiEntries.size() > 0
+                && SystemEmojiAtlas.INSTANCE.getTexture() != null) {
+            if (emojiBatch == null) {
+                emojiBatch = new EmojiBatch(new LuminRingBuffer(bufferSize, GpuBuffer.USAGE_VERTEX));
+            }
+            int count = layout.emojiEntries.size();
+            long p = emojiBatch.beginWrite(count);
+            for (float[] e : layout.emojiEntries) {
+                writeEmojiGlyph(p, x, y, scale, e, 0xFFFFFFFF);
                 p += GLYPH_BYTES;
             }
         }
@@ -226,6 +265,23 @@ public class TtfTextRenderer implements ITextRenderer {
         BufferUtils.writeUvRectToAddr(p + STRIDE, x1, y2, u0, v1, leftArgb);
         BufferUtils.writeUvRectToAddr(p + STRIDE * 2L, x2, y2, u1, v1, rightArgb);
         BufferUtils.writeUvRectToAddr(p + STRIDE * 3L, x2, y1, u1, v0, rightArgb);
+    }
+
+    private static void writeEmojiGlyph(long p, float x, float y, float scale, float[] data, int argb) {
+        float x1 = x + data[0] * scale;
+        float y1 = y + data[1] * scale;
+        float x2 = x + data[2] * scale;
+        float y2 = y + data[3] * scale;
+        float u0 = data[4];
+        float v0 = data[5];
+        float u1 = data[6];
+        float v1 = data[7];
+
+        // Emoji uses WHITE tint — its own RGBA colors show through
+        BufferUtils.writeUvRectToAddr(p, x1, y1, u0, v0, argb);
+        BufferUtils.writeUvRectToAddr(p + STRIDE, x1, y2, u0, v1, argb);
+        BufferUtils.writeUvRectToAddr(p + STRIDE * 2L, x2, y2, u1, v1, argb);
+        BufferUtils.writeUvRectToAddr(p + STRIDE * 3L, x2, y1, u1, v0, argb);
     }
 
     private static void writeRotatedGlyph(long p, float x, float y, float scale, float[] data, int base, int leftArgb, int rightArgb, float originX, float originY, float cos, float sin) {
@@ -326,10 +382,18 @@ public class TtfTextRenderer implements ITextRenderer {
     public boolean prepareSharedDraw() {
         sharedDynamicUniforms = null;
         sharedMaxIndexCount = 0;
-        if (batches.isEmpty()) return false;
+        if (batches.isEmpty() && (emojiBatch == null || emojiBatch.offsetInAtlas == 0)) return false;
         if (scissorEnabled && !ScissorUtils.isVisible(scissorW, scissorH)) return false;
 
         sharedMaxIndexCount = prepareTextBatches();
+        if (emojiBatch != null && emojiBatch.offsetInAtlas > 0) {
+            if (emojiBatch.buffer.isMapped()) {
+                emojiBatch.buffer.unmap();
+                emojiBatch.mappedAddress = 0L;
+            }
+            int vc = (int) (emojiBatch.offsetInAtlas / STRIDE);
+            sharedMaxIndexCount = Math.max(sharedMaxIndexCount, (vc / 4) * 6);
+        }
         if (sharedMaxIndexCount == 0) return false;
 
         LuminRenderSystem.getQuadIndexBuffer(sharedMaxIndexCount);
@@ -371,7 +435,7 @@ public class TtfTextRenderer implements ITextRenderer {
             pass.disableScissor();
         }
 
-        // 不同 atlas 共享同一字体 pipeline，在同一个 pass 内只切换纹理并连续 draw。
+        // TTF glyph batches
         for (Map.Entry<TtfGlyphAtlas, Batch> entry : batches.entrySet()) {
             final var atlas = entry.getKey();
             final var batch = entry.getValue();
@@ -384,6 +448,23 @@ public class TtfTextRenderer implements ITextRenderer {
             pass.setVertexBuffer(0, batch.buffer.getGpuBuffer().slice());
             pass.bindTexture("Sampler0", atlas.getTexture().getTextureView(), atlas.getTexture().getSampler());
             pass.drawIndexed(indexCount, 1, 0, 0, 0);
+        }
+
+        // Emoji batch — separate pipeline with RGBA texture
+        if (emojiBatch != null && emojiBatch.offsetInAtlas > 0) {
+            var emojiTex = SystemEmojiAtlas.INSTANCE.getTexture();
+            if (emojiTex != null) {
+                pass.setPipeline(LuminRenderPipelines.EMOJI);
+                int vertexCount = (int) (emojiBatch.offsetInAtlas / STRIDE);
+                int indexCount = (vertexCount / 4) * 6;
+                pass.setVertexBuffer(0, emojiBatch.buffer.getGpuBuffer().slice());
+                pass.bindTexture("Sampler0", emojiTex.getTextureView(), emojiTex.getSampler());
+                pass.drawIndexed(indexCount, 1, 0, 0, 0);
+                // Restore TTF pipeline for any subsequent batches in shared passes
+                pass.setPipeline(ClientSetting.INSTANCE.fontAntiAliasing.getValue()
+                        ? LuminRenderPipelines.TTF_FONT_AA
+                        : LuminRenderPipelines.TTF_FONT_NO_AA);
+            }
         }
     }
 
@@ -399,6 +480,14 @@ public class TtfTextRenderer implements ITextRenderer {
             }
             batch.offsetInAtlas = 0;
         }
+        if (emojiBatch != null && emojiBatch.offsetInAtlas > 0) {
+            if (emojiBatch.buffer.isMapped()) {
+                emojiBatch.buffer.unmap();
+                emojiBatch.mappedAddress = 0L;
+            }
+            emojiBatch.buffer.rotate();
+            emojiBatch.offsetInAtlas = 0;
+        }
         sharedDynamicUniforms = null;
         sharedMaxIndexCount = 0;
     }
@@ -410,6 +499,10 @@ public class TtfTextRenderer implements ITextRenderer {
             batch.buffer.close();
         }
         batches.clear();
+        if (emojiBatch != null) {
+            emojiBatch.buffer.close();
+            emojiBatch = null;
+        }
         layoutCache.clear();
         widthCache.clear();
     }
@@ -467,6 +560,32 @@ public class TtfTextRenderer implements ITextRenderer {
         }
     }
 
+    private static final class EmojiBatch {
+        final LuminRingBuffer buffer;
+        long offsetInAtlas = 0;
+        long mappedAddress = 0L;
+
+        private EmojiBatch(LuminRingBuffer buffer) {
+            this.buffer = buffer;
+        }
+
+        private long beginWrite(int glyphCount) {
+            long start = offsetInAtlas;
+            long requiredBytes = start + glyphCount * GLYPH_BYTES;
+            buffer.ensureCapacity(requiredBytes);
+
+            if (!buffer.isMapped()) {
+                buffer.tryMap();
+                mappedAddress = MemoryUtil.memAddress(buffer.getMappedBuffer());
+            } else if (mappedAddress == 0L) {
+                mappedAddress = MemoryUtil.memAddress(buffer.getMappedBuffer());
+            }
+
+            offsetInAtlas = requiredBytes;
+            return mappedAddress + start;
+        }
+    }
+
     private record LayoutKey(TtfFontLoader fontLoader, String text, float renderScale) {
     }
 
@@ -477,14 +596,17 @@ public class TtfTextRenderer implements ITextRenderer {
         final boolean complete;
         final long glyphRevision;
         final long atlasRevision;
+        final List<float[]> emojiEntries;
 
-        private TextLayout(LayoutRun[] runs, int glyphCount, float width, boolean complete, long glyphRevision, long atlasRevision) {
+        private TextLayout(LayoutRun[] runs, int glyphCount, float width, boolean complete,
+                           long glyphRevision, long atlasRevision, List<float[]> emojiEntries) {
             this.runs = runs;
             this.glyphCount = glyphCount;
             this.width = width;
             this.complete = complete;
             this.glyphRevision = glyphRevision;
             this.atlasRevision = atlasRevision;
+            this.emojiEntries = emojiEntries;
         }
     }
 

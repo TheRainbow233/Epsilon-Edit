@@ -1,21 +1,24 @@
 package com.github.epsilon.modules.impl.combat;
 
 import com.github.epsilon.events.bus.EventHandler;
-import com.github.epsilon.events.bus.EventPriority;
 import com.github.epsilon.events.impl.PlayerTickEvent;
 import com.github.epsilon.events.impl.Render3DEvent;
-import com.github.epsilon.events.impl.SendPositionEvent;
-import com.github.epsilon.events.impl.UseItemEvent;
 import com.github.epsilon.managers.Managers;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
+import com.github.epsilon.modules.impl.misc.AntiBot;
+import com.github.epsilon.modules.impl.misc.Teams;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.EnumSetting;
 import com.github.epsilon.settings.impl.IntSetting;
+import com.github.epsilon.utils.rotation.Priority;
+import com.github.epsilon.utils.rotation.Rot2f;
 import com.github.epsilon.utils.timer.TimerUtils;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BowItem;
 import net.minecraft.world.phys.HitResult;
@@ -40,7 +43,7 @@ public class AimBot extends Module {
     }
 
     private final EnumSetting<Mode> mode = enumSetting("Mode", Mode.AimAssist);
-    private final EnumSetting<Rotation> rotation = enumSetting("Rotation", Rotation.Silent, () -> !mode.is(Mode.AimAssist));
+    private final EnumSetting<Rotation> rotation = enumSetting("Rotation", Rotation.Silent, () -> mode.is(Mode.AimAssist));
     private final IntSetting aimStrength = intSetting("Aim Strength", 30, 1, 100, 1, () -> mode.is(Mode.AimAssist));
     private final IntSetting aimSmooth = intSetting("Aim Smooth", 45, 1, 180, 1, () -> mode.is(Mode.AimAssist));
     private final IntSetting aimTime = intSetting("Aim Time", 2, 1, 10, 1, () -> mode.is(Mode.AimAssist));
@@ -50,9 +53,15 @@ public class AimBot extends Module {
     private final IntSetting reactionTime = intSetting("Reaction Time", 80, 1, 500, 1, () -> mode.is(Mode.AimAssist) && !ignoreWalls.getValue());
     private final BoolSetting ignoreInvisible = boolSetting("Ignore Invis", false, () -> mode.is(Mode.AimAssist));
     private final IntSetting predictTicks = intSetting("Predict Ticks", 2, 0, 20, 1, () -> mode.is(Mode.BowAim));
+    private final IntSetting bowFov = intSetting("Bow FOV", 180, 10, 360, 1, () -> mode.is(Mode.BowAim));
+    private final IntSetting bowRange = intSetting("Bow Range", 64, 8, 128, 1, () -> mode.is(Mode.BowAim));
+    private final IntSetting bowSmooth = intSetting("Bow Smooth", 30, 5, 100, 1, () -> mode.is(Mode.BowAim));
+    private final BoolSetting bowThroughWalls = boolSetting("Bow Through Walls", false, () -> mode.is(Mode.BowAim));
+    private final BoolSetting bowClientRotation = boolSetting("Bow Client Rotation", false, () -> mode.is(Mode.BowAim));
 
     private Entity target;
-    private float rotationYaw, rotationPitch, assistAcceleration;
+    private float rotationYaw, assistAcceleration;
+    private float bowTargetYaw = Float.NaN, bowTargetPitch = Float.NaN;
     private int aimTicks;
     private final TimerUtils visibleTime = new TimerUtils();
 
@@ -60,8 +69,6 @@ public class AimBot extends Module {
     protected void onEnable() {
         if (mc.player == null) return;
         target = null;
-        rotationYaw = mc.player.getYRot();
-        rotationPitch = mc.player.getXRot();
         assistAcceleration = 0.0f;
         aimTicks = 0;
         visibleTime.reset();
@@ -75,22 +82,6 @@ public class AimBot extends Module {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    private void onSendPosition(SendPositionEvent event) {
-        if (mode.is(Mode.BowAim) && isUsingBow() && !Float.isNaN(rotationYaw) && !Float.isNaN(rotationPitch)) {
-            event.setYaw(rotationYaw);
-            event.setPitch(rotationPitch);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH)
-    private void onUseItem(UseItemEvent event) {
-        if (mode.is(Mode.BowAim) && isUsingBow() && !Float.isNaN(rotationYaw) && !Float.isNaN(rotationPitch)) {
-            event.setYaw(rotationYaw);
-            event.setPitch(rotationPitch);
-        }
-    }
-
     @EventHandler
     private void onRender3D(Render3DEvent event) {
         if (mode.is(Mode.AimAssist)) {
@@ -100,40 +91,59 @@ public class AimBot extends Module {
             return;
         }
 
-        float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        if (isUsingBow() && target != null && (mc.player.hasLineOfSight(target) || ignoreWalls.getValue())) {
-            if (rotation.is(Rotation.Client)) {
-                mc.player.setYRot(Mth.lerp(tickDelta, mc.player.yRotO, rotationYaw));
-                mc.player.setXRot(Mth.lerp(tickDelta, mc.player.xRotO, rotationPitch));
-            }
-        }
-
-        if (rotation.is(Rotation.Client) && mode.is(Mode.BowAim) && isUsingBow()) {
-            mc.player.setYRot(Mth.lerp(tickDelta, mc.player.yRotO, rotationYaw));
-            mc.player.setXRot(Mth.lerp(tickDelta, mc.player.xRotO, rotationPitch));
+        // BowAim client-side rotation — lets the player see where they're aiming
+        if (mode.is(Mode.BowAim) && bowClientRotation.getValue() && !Float.isNaN(bowTargetYaw)) {
+            float tickDelta = mc.getDeltaTracker().getGameTimeDeltaPartialTick(true);
+            float smooth = bowSmooth.getValue() / 100.0f;
+            mc.player.setYRot(Mth.lerp(smooth * tickDelta, mc.player.yRotO, bowTargetYaw));
+            mc.player.setXRot(Mth.lerp(smooth * tickDelta, mc.player.xRotO, bowTargetPitch));
         }
     }
 
     private void updateBowAim() {
-        if (!isUsingBow()) return;
+        if (!isUsingBow()) {
+            bowTargetYaw = Float.NaN;
+            return;
+        }
 
-        Player nearestTarget = getTargetByFOV(128.0f);
-        target = nearestTarget;
-        if (nearestTarget == null) return;
+        // Priority-based target selection
+        LivingEntity bestTarget = getBestBowTarget();
+        target = bestTarget;
+        if (bestTarget == null) {
+            bowTargetYaw = Float.NaN;
+            return;
+        }
 
-        float currentDuration = BowItem.getPowerForTime(mc.player.getTicksUsingItem());
-        float pitch = (float) -Math.toDegrees(calculateArc(nearestTarget, currentDuration * 3.0f));
-        if (Float.isNaN(pitch)) return;
+        // Arrow velocity: charge * 3.0 blocks/tick (max 3.0 at full draw)
+        float charge = BowItem.getPowerForTime(mc.player.getTicksUsingItem());
+        double velocity = charge * 3.0;
 
-        Vec3 predicted = predictPosition(nearestTarget, predictTicks.getValue());
-        double iX = predicted.x - nearestTarget.xOld;
-        double iZ = predicted.z - nearestTarget.zOld;
-        double distance = mc.player.distanceTo(nearestTarget);
-        distance -= distance % 2.0;
-        iX = distance / 2.0 * iX * (mc.player.isSprinting() ? 1.3 : 1.1);
-        iZ = distance / 2.0 * iZ * (mc.player.isSprinting() ? 1.3 : 1.1);
-        rotationYaw = (float) Math.toDegrees(Math.atan2(predicted.z + iZ - mc.player.getZ(), predicted.x + iX - mc.player.getX())) - 90.0f;
-        rotationPitch = pitch;
+        // Predicted target position
+        Vec3 predicted = predictPosition(bestTarget, predictTicks.getValue());
+
+        double dx = predicted.x - mc.player.getX();
+        double dz = predicted.z - mc.player.getZ();
+        double dy = (predicted.y + bestTarget.getEyeHeight(bestTarget.getPose()))
+                   - (mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()));
+
+        float targetPitch = computeProjectilePitch(dx, dz, dy, velocity);
+        if (Float.isNaN(targetPitch)) {
+            bowTargetYaw = Float.NaN;
+            return;
+        }
+
+        float targetYaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90.0f;
+
+        // Store for client-side rotation rendering
+        bowTargetYaw = targetYaw;
+        bowTargetPitch = targetPitch;
+
+        // Delegate to rotation manager — handles silent packets, movement fix, crosshair, smoothing
+        Managers.ROTATION.setRotations(
+                new Rot2f(targetYaw, targetPitch),
+                bowSmooth.getValue(),
+                Priority.Medium
+        );
     }
 
     private void updateAimAssist() {
@@ -195,33 +205,60 @@ public class AimBot extends Module {
         aimTicks = 0;
     }
 
-    private float calculateArc(Player target, double duration) {
-        double yArc = target.getY() + target.getEyeHeight(target.getPose()) - (mc.player.getY() + mc.player.getEyeHeight(mc.player.getPose()));
-        double dX = target.getX() - mc.player.getX();
-        double dZ = target.getZ() - mc.player.getZ();
-        double dirRoot = Math.sqrt(dX * dX + dZ * dZ);
-        return calculateArc(duration, dirRoot, yArc);
+    /**
+     * Computes the launch pitch for a projectile to hit a target point.
+     * Uses the standard projectile motion formula with Minecraft's gravity.
+     *
+     * @param dx       horizontal X distance to target
+     * @param dz       horizontal Z distance to target
+     * @param dy       vertical distance (target eye - shooter eye)
+     * @param velocity initial velocity in blocks/tick (charge * 3.0 for arrows)
+     * @return pitch in degrees, or NaN if unreachable
+     */
+    private float computeProjectilePitch(double dx, double dz, double dy, double velocity) {
+        double horizontalDist = Math.sqrt(dx * dx + dz * dz);
+        double v2 = velocity * velocity;
+        double v4 = v2 * v2;
+        double g = 0.05; // Minecraft arrow gravity (blocks/tick²)
+
+        double discriminant = v4 - g * (g * horizontalDist * horizontalDist + 2.0 * dy * v2);
+        if (discriminant < 0.0) return Float.NaN; // unreachable
+
+        // Use the lower trajectory (shallower angle)
+        double tanTheta = (v2 - Math.sqrt(discriminant)) / (g * horizontalDist);
+        return (float) -Math.toDegrees(Math.atan(tanTheta));
     }
 
-    private float calculateArc(double d, double dr, double y) {
-        y = 2.0 * y * d * d;
-        y = 0.05000000074505806 * (0.05000000074505806 * dr * dr + y);
-        y = Math.sqrt(d * d * d * d - y);
-        d = d * d - y;
-        y = Math.atan2(d * d + y, 0.05000000074505806 * dr);
-        d = Math.atan2(d, 0.05000000074505806 * dr);
-        return (float) Math.min(y, d);
-    }
+    /**
+     * Finds the best bow target by priority score.
+     * Score = yawDiff * distance — lower is better.
+     * This prioritizes entities closest to the crosshair first,
+     * and among those at similar angles, the closest entity wins.
+     */
+    private LivingEntity getBestBowTarget() {
+        LivingEntity best = null;
+        double bestScore = Double.MAX_VALUE;
+        float maxFov = bowFov.getValue();
+        double rangeSq = bowRange.getValue() * bowRange.getValue();
 
-    private Player getTargetByFOV(float maxFov) {
-        Player best = null;
-        float bestFov = maxFov;
         for (Entity entity : mc.level.entitiesForRendering()) {
-            if (!(entity instanceof Player player) || shouldSkipPlayer(player)) continue;
-            float yawDiff = Math.abs(Mth.wrapDegrees(getYawBetween(mc.player.getYRot(), mc.player.getX(), mc.player.getZ(), player.getX(), player.getZ()) - mc.player.getYRot()));
-            if (yawDiff < bestFov) {
-                best = player;
-                bestFov = yawDiff;
+            if (!(entity instanceof LivingEntity living) || !isValidBowTarget(living)) continue;
+            if (entity.isInvisible() && !ClientSetting.canTargetInvisible()) continue;
+
+            double distSq = mc.player.distanceToSqr(living);
+            if (distSq > rangeSq) continue;
+
+            float yawDiff = Math.abs(Mth.wrapDegrees(getYawBetween(mc.player.getYRot(), mc.player.getX(), mc.player.getZ(), living.getX(), living.getZ()) - mc.player.getYRot()));
+            if (yawDiff > maxFov) continue;
+
+            // Wall check
+            if (!bowThroughWalls.getValue() && !mc.player.hasLineOfSight(living)) continue;
+
+            // Priority: lower yawDiff * distance wins (crosshair-center + closest)
+            double score = yawDiff * Math.sqrt(distSq);
+            if (score < bestScore) {
+                best = living;
+                bestScore = score;
             }
         }
         return best;
@@ -243,9 +280,19 @@ public class AimBot extends Module {
         return nearest;
     }
 
+    private boolean isValidBowTarget(LivingEntity entity) {
+        if (entity == mc.player || !entity.isAlive() || entity.isDeadOrDying()) return false;
+        if (!ClientSetting.isGlobalTarget(entity)) return false;
+        if (AntiBot.INSTANCE.isBot(entity)) return false;
+        if (Teams.isTeam(entity)) return false;
+        if (entity instanceof Player player && Managers.FRIEND.isFriend(player)) return false;
+        return true;
+    }
+
     private boolean shouldSkipPlayer(Player player) {
         if (player == mc.player || !player.isAlive() || player.isDeadOrDying()) return true;
         if (AntiBot.INSTANCE.isBot(player)) return true;
+        if (Teams.isTeam(player)) return true;
         if (Managers.FRIEND.isFriend(player)) return true;
         return false;
     }
@@ -258,9 +305,9 @@ public class AimBot extends Module {
     }
 
     private Vec3 predictPosition(Entity entity, int ticks) {
-        double motionX = entity.getX() - entity.xo;
-        double motionY = entity.getY() - entity.yo;
-        double motionZ = entity.getZ() - entity.zo;
+        double motionX = entity.getX() - entity.xOld;
+        double motionY = entity.getY() - entity.yOld;
+        double motionZ = entity.getZ() - entity.zOld;
         return entity.position().add(motionX * ticks, motionY * ticks, motionZ * ticks);
     }
 

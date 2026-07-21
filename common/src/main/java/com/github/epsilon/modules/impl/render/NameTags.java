@@ -9,6 +9,8 @@ import com.github.epsilon.graphics.renderers.TextRenderer;
 import com.github.epsilon.managers.Managers;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.misc.AntiBot;
+import com.github.epsilon.modules.impl.misc.Teams;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.ColorSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
@@ -32,6 +34,8 @@ public class NameTags extends Module {
     private static final Color TAG_BACKGROUND = new Color(0, 0, 0, 130);
     private static final Color FRIEND_COLOR = new Color(20, 255, 20, 235);
     private static final Color NAME_COLOR = new Color(255, 255, 255, 235);
+    private static final Color BOT_COLOR = new Color(255, 60, 60, 255);
+    private static final Color TEAM_COLOR = new Color(60, 200, 255, 255);
 
     public static final NameTags INSTANCE = new NameTags();
 
@@ -42,8 +46,6 @@ public class NameTags extends Module {
     public final BoolSetting vanillaNameTags = boolSetting("Vanilla Name Tags", false);
     private final BoolSetting showEquipment = boolSetting("Show Equipment", true);
     private final BoolSetting showHands = boolSetting("Show Hands", true, showEquipment::getValue);
-    private final BoolSetting showSelf = boolSetting("Show Self", true);
-
     private final Supplier<TextRenderer> textRendererSupplier = Suppliers.memoize(TextRenderer::create);
     private final Supplier<RectRenderer> rectRendererSupplier = Suppliers.memoize(RectRenderer::create);
 
@@ -67,8 +69,10 @@ public class NameTags extends Module {
 
         for (Player target : mc.level.players()) {
             if (!target.isAlive() || target.isSpectator()) continue;
-            if (mc.options.getCameraType().isFirstPerson() && target == mc.player) continue;
-            if (target == mc.player && !showSelf.getValue()) continue;
+            if (target == mc.player) continue;
+
+            if (!WorldToScreen.isInFrontOfCamera(target, partialTick)) continue;
+
             double distanceSq = mc.player.distanceToSqr(target);
             if (distanceSq > maxDistanceSq) continue;
 
@@ -87,6 +91,20 @@ public class NameTags extends Module {
             float totalHealth = target.getHealth() + target.getAbsorptionAmount();
             String healthText = String.format(Locale.ROOT, "[%.1f HP]", totalHealth);
 
+            // Bot / Team markers
+            final boolean isBot = AntiBot.INSTANCE.isBot(target);
+            final boolean isTeam = Teams.isTeam(target);
+            String prefix = null;
+            Color prefixColor = null;
+            if (isBot) {
+                prefix = "[BOT] ";
+                prefixColor = BOT_COLOR;
+            } else if (isTeam) {
+                prefix = "[TEAM] ";
+                prefixColor = TEAM_COLOR;
+            }
+            float prefixWidth = prefix != null ? textRenderer.getWidth(prefix, renderScale) : 0.0f;
+
             float padding = 3.0f * renderScale;
             float lineGap = 2.0f * renderScale;
             float lineHeight = textRenderer.getHeight(renderScale);
@@ -94,7 +112,8 @@ public class NameTags extends Module {
             float itemSize = 16.0f * itemScale;
             float itemGap = 2.0f * renderScale;
             float itemRowWidth = equipmentItems.isEmpty() ? 0.0f : equipmentItems.size() * itemSize + Math.max(0, equipmentItems.size() - 1) * itemGap;
-            float headerWidth = textRenderer.getWidth(nameText, renderScale)
+            float headerWidth = prefixWidth
+                    + textRenderer.getWidth(nameText, renderScale)
                     + textRenderer.getWidth(" ", renderScale)
                     + textRenderer.getWidth(healthText, renderScale);
 
@@ -125,7 +144,10 @@ public class NameTags extends Module {
             Color healthColor = totalHealth < 10.0f ? new Color(255, 214, 64, 240) : new Color(120, 255, 120, 240);
             final var isFriend = Managers.FRIEND.isFriend(nameText);
 
-            drawList.add(new TagDrawData(equipmentItems, nameText, isFriend, healthText, healthColor, x, y, boxWidth, boxHeight, renderScale, padding, lineGap, itemScale, itemSize, itemGap, itemRowGap));
+            drawList.add(new TagDrawData(equipmentItems, nameText, isFriend, healthText, healthColor,
+                    x, y, boxWidth, boxHeight, renderScale, padding, lineGap,
+                    itemScale, itemSize, itemGap, itemRowGap,
+                    prefix, prefixColor, prefixWidth));
         }
 
     }
@@ -144,11 +166,17 @@ public class NameTags extends Module {
             float nameWidth = textRenderer.getWidth(data.nameText, data.scale);
             float spaceWidth = textRenderer.getWidth(" ", data.scale);
             float healthWidth = textRenderer.getWidth(data.healthText, data.scale);
-            float headerWidth = nameWidth + spaceWidth + healthWidth;
+            float headerWidth = data.prefixWidth + nameWidth + spaceWidth + healthWidth;
             float headerX = data.x + (data.width - headerWidth) * 0.5f;
 
-            textRenderer.addText(data.nameText, headerX, headerY, data.scale, data.isFriend ? FRIEND_COLOR : NAME_COLOR);
-            textRenderer.addText(data.healthText, headerX + nameWidth + spaceWidth, headerY, data.scale, data.healthColor);
+            // Prefix tag [BOT] / [TEAM]
+            if (data.prefix != null && data.prefixColor != null) {
+                textRenderer.addText(data.prefix, headerX, headerY, data.scale, data.prefixColor);
+            }
+
+            float nameX = headerX + data.prefixWidth;
+            textRenderer.addText(data.nameText, nameX, headerY, data.scale, data.isFriend ? FRIEND_COLOR : NAME_COLOR);
+            textRenderer.addText(data.healthText, nameX + nameWidth + spaceWidth, headerY, data.scale, data.healthColor);
 
             if (!data.equipmentItems.isEmpty()) {
                 float itemRowWidth = data.equipmentItems.size() * data.itemSize + Math.max(0, data.equipmentItems.size() - 1) * data.itemGap;
@@ -227,7 +255,10 @@ public class NameTags extends Module {
             float itemScale,
             float itemSize,
             float itemGap,
-            float itemRowGap
+            float itemRowGap,
+            String prefix,
+            Color prefixColor,
+            float prefixWidth
     ) {
     }
 

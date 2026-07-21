@@ -171,7 +171,9 @@ public class ModuleList extends HudModule {
         float namePadEnd = OPEN_NAME_PADDING_END * s;
         float infoPadStart = OPEN_INFO_PADDING_START * s;
         float infoPadEnd = OPEN_INFO_PADDING_END * s;
-        float radius = openCornerRadius.getValue().floatValue() * s;
+        float
+
+                radius = openCornerRadius.getValue().floatValue() * s;
 
         List<RenderRow> sizedRows = new ArrayList<>(rows.size());
         float maxWidth = MIN_BOUNDS;

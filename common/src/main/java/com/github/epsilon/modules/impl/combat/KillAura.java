@@ -9,6 +9,7 @@ import com.github.epsilon.managers.Managers;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.impl.*;
 import com.github.epsilon.utils.math.MathUtils;
 import com.github.epsilon.utils.render.esp.CaptureMarkESP;
@@ -74,12 +75,6 @@ public class KillAura extends Module {
     private final IntSetting minCPS = intSetting("Min CPS", 10, 1, 20, 1, () -> mode.is(Mode.OnePointEight));
     private final IntSetting maxCPS = intSetting("Max CPS", 12, 1, 20, 1, () -> mode.is(Mode.OnePointEight));
 
-    private final BoolSetting player = boolSetting("Player", true);
-    private final BoolSetting mob = boolSetting("Mob", true);
-    private final BoolSetting animal = boolSetting("Animal", true);
-    private final BoolSetting villagers = boolSetting("Villagers", false);
-    private final BoolSetting invisible = boolSetting("Invisible", true);
-
     private final BoolSetting throughWalls = boolSetting("Through Walls", false);
 
     private final BoolSetting swingHand = boolSetting("SwingHand", true);
@@ -140,11 +135,11 @@ public class KillAura extends Module {
         List<LivingEntity> targets = Managers.TARGET.acquireTargets(TargetRequest.of(
                 aimRange.getValue(),
                 fov.getValue().floatValue(),
-                player.getValue(),
-                mob.getValue(),
-                animal.getValue(),
-                villagers.getValue(),
-                invisible.getValue(),
+                ClientSetting.INSTANCE.targetPlayer.getValue(),
+                ClientSetting.INSTANCE.targetMob.getValue(),
+                ClientSetting.INSTANCE.targetAnimal.getValue(),
+                ClientSetting.INSTANCE.targetVillager.getValue(),
+                ClientSetting.INSTANCE.targetInvisible.getValue(),
                 64
         ));
 
@@ -184,13 +179,14 @@ public class KillAura extends Module {
     private void clickTargets(List<LivingEntity> targets) {
         if (targetMode.is(TargetMode.Multiple)) {
             for (LivingEntity target : targets) {
-                if (throughWalls.getValue() || mc.hitResult.getType() == HitResult.Type.ENTITY) {
+                if (throughWalls.getValue() || (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)) {
                     doAttack(target);
                 }
             }
             switchIndex++;
         } else {
-            if (throughWalls.getValue() || (mc.hitResult.getType() == HitResult.Type.ENTITY && mc.crosshairPickEntity.is(target))) {
+            if (throughWalls.getValue() || (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY
+                    && mc.crosshairPickEntity != null && mc.crosshairPickEntity.is(target))) {
                 doAttack(target);
             }
             if (targetMode.is(TargetMode.Switch)) {

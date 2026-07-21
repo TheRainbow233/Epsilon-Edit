@@ -11,6 +11,7 @@ import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
 import com.github.epsilon.modules.impl.movement.elytrafly.ElytraFlightModes;
+import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.modules.impl.movement.elytrafly.ElytraFly;
 import com.github.epsilon.settings.impl.*;
 import net.minecraft.client.player.LocalPlayer;
@@ -38,7 +39,7 @@ public class Follower extends Module {
     private final EnumSetting<Mode> mode = enumSetting("Mode", Mode.Straight);
     private final DoubleSetting range = doubleSetting("Range", 96.0, 8.0, 256.0, 1.0);
     private final DoubleSetting stopDistance = doubleSetting("Stop Distance", 6.0, 1.0, 32.0, 0.5);
-    private final BoolSetting ignoreInvisible = boolSetting("Ignore Invisible", true);
+
     private final IntSetting predictTicks = intSetting("Predict Ticks", 4, 0, 20, 1);
     private final DoubleSetting verticalDeadzone = doubleSetting("Vertical Deadzone", 1.5, 0.0, 12.0, 0.5);
     private final IntSetting searchRadius = intSetting("Search Radius", 24, 6, 64, 1, () -> mode.is(Mode.AStar));
@@ -88,7 +89,7 @@ public class Follower extends Module {
                 false,
                 false,
                 false,
-                !ignoreInvisible.getValue(),
+                ClientSetting.INSTANCE.targetInvisible.getValue(),
                 living -> living instanceof Player,
                 1
         ));

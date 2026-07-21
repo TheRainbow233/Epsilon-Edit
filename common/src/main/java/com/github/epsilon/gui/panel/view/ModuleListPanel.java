@@ -21,10 +21,12 @@ import com.github.epsilon.managers.impl.sound.SoundKey;
 import com.github.epsilon.modules.Module;
 import com.github.epsilon.utils.render.animation.Animation;
 import com.github.epsilon.utils.render.animation.Easing;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.*;
 import java.util.*;
@@ -181,11 +183,47 @@ public class ModuleListPanel implements AutoCloseable {
      * <p>
      * 该方法会优先处理滚动条拖拽，其次处理搜索框聚焦，最后处理模块行选择与启用切换。
      */
+    // Search field state
+    private boolean searchContextMenu;
+    private float searchMenuX, searchMenuY;
+    private int selStart = -1, selEnd = -1;
+    private boolean selecting;
+    private float searchTextX, searchTextScale;
+
+    public boolean isTextHovered(int mx, int my) {
+        return getSearchBounds().contains(mx, my);
+    }
+
     public boolean mouseClicked(MouseButtonEvent event, boolean isDoubleClick) {
-        if (bounds == null || event.button() != 0) {
-            return false;
-        }
+        if (bounds == null) return false;
+        int btn = event.button();
         scrollVelocity = 0;
+
+        UiRect searchBounds = getSearchBounds();
+        boolean hoveringSearch = searchBounds.contains(event.x(), event.y());
+
+        // Right-click context menu on search field
+        if (searchContextMenu) {
+            if (contextMenuClicked(event.x(), event.y(), btn)) { markDirty(); return true; }
+            searchContextMenu = false; markDirty(); return true;
+        }
+        if (btn == GLFW.GLFW_MOUSE_BUTTON_RIGHT && hoveringSearch) {
+            searchContextMenu = true;
+            float mw = 90f, mh = 36f;
+            searchMenuX = (float) event.x();
+            searchMenuY = (float) event.y();
+            float sw = Minecraft.getInstance().getWindow().getWidth() / (float) Minecraft.getInstance().getWindow().getGuiScale();
+            float sh = Minecraft.getInstance().getWindow().getHeight() / (float) Minecraft.getInstance().getWindow().getGuiScale();
+            if (searchMenuX + mw > sw) searchMenuX = (float) event.x() - mw;
+            if (searchMenuY + mh > sh) searchMenuY = (float) event.y() - mh;
+            if (searchMenuX < 0) searchMenuX = 2f;
+            if (searchMenuY < 0) searchMenuY = 2f;
+            markDirty();
+            return true;
+        }
+
+        if (btn != 0) return false;
+
         // Scrollbar drag
         UiRect viewport = getViewport();
         float maxScroll = state.getMaxModuleScroll();
@@ -197,10 +235,11 @@ public class ModuleListPanel implements AutoCloseable {
             markDirty();
             return true;
         }
-        UiRect searchBounds = getSearchBounds();
-        if (searchBounds.contains(event.x(), event.y())) {
+        if (hoveringSearch) {
             searchFocused = true;
-            searchCursorIndex = state.getSearchQuery().length();
+            String query = state.getSearchQuery();
+            int pos = query.isEmpty() ? 0 : resolveSearchCursor(event.x(), query);
+            selStart = pos; selEnd = pos; searchCursorIndex = pos; selecting = true;
             IMEFocusHelper.activate();
             markDirty();
             return true;
@@ -222,10 +261,8 @@ public class ModuleListPanel implements AutoCloseable {
     }
 
     public boolean mouseReleased(MouseButtonEvent event) {
-        if (scrollBarDrag.mouseReleased()) {
-            markDirty();
-            return true;
-        }
+        if (scrollBarDrag.mouseReleased()) { markDirty(); return true; }
+        if (selecting) { selecting = false; if (selStart == selEnd) { selStart = -1; selEnd = -1; } markDirty(); return true; }
         return false;
     }
 
@@ -233,13 +270,27 @@ public class ModuleListPanel implements AutoCloseable {
         if (scrollBarDrag.isDragging()) {
             UiRect viewport = getViewport();
             float newScroll = scrollBarDrag.mouseDragged(event.y(), viewport, state.getMaxModuleScroll());
-            if (newScroll >= 0) {
-                state.setModuleScroll(newScroll);
-            }
+            if (newScroll >= 0) state.setModuleScroll(newScroll);
+            markDirty();
+            return true;
+        }
+        if (selecting) {
+            String query = state.getSearchQuery();
+            int pos = query.isEmpty() ? 0 : resolveSearchCursor(event.x(), query);
+            selEnd = pos; searchCursorIndex = pos;
             markDirty();
             return true;
         }
         return false;
+    }
+
+    private int resolveSearchCursor(double mouseX, String query) {
+        if (query.isEmpty()) return 0;
+        for (int i = 0; i <= query.length(); i++) {
+            float w = textRenderer.getWidth(query.substring(0, i), searchTextScale);
+            if (mouseX < searchTextX + w) return i;
+        }
+        return query.length();
     }
 
     /**
@@ -401,21 +452,62 @@ public class ModuleListPanel implements AutoCloseable {
         boolean showPlaceholder = query.isEmpty() && !searchFocused;
         String display = showPlaceholder ? EpsilonTranslations.Gui.SEARCH.getTranslatedName() : query;
         float scale = 0.52f;
+        float textX = searchBounds.x() + 8.0f;
+        searchTextX = textX; searchTextScale = scale;
         Color textColor = showPlaceholder
                 ? MD3Theme.lerp(MD3Theme.TEXT_MUTED, MD3Theme.filledFieldContent(searchFocused), focusProgress)
                 : MD3Theme.filledFieldContent(searchFocused);
+
+        final UiTree.SelectionRange sel;
+        final Color selColor;
+        if (searchFocused && selStart >= 0 && selEnd >= 0 && selStart != selEnd) {
+            sel = new UiTree.SelectionRange(Math.min(selStart, selEnd), Math.max(selStart, selEnd));
+            selColor = new Color(208, 188, 255, 70);
+        } else {
+            sel = null;
+            selColor = null;
+        }
+
         scope.pushAbsolute(searchBounds, search ->
                 search.input(searchBounds.atOrigin(), searchFocused, fieldHover,
+                        0.0f, null, 0.0f,
                         8.0f, display, scale, textColor,
+                        sel, selColor,
                         searchFocused ? searchCursorIndex : null, searchFocused ? MD3Theme.filledFieldCaret(true) : null,
                         null, 0.0f, null));
 
         if (searchFocused) {
             float textY = searchBounds.y() + (searchBounds.height() - textRenderer.getHeight(scale)) / 2.0f;
-            float textX = searchBounds.x() + 8.0f;
             float caretX = textX + textRenderer.getWidth(query.substring(0, Math.min(searchCursorIndex, query.length())), scale);
             IMEFocusHelper.updateCursorPos(caretX, textY);
         }
+
+        if (searchContextMenu) drawContextMenu(scope, textRenderer);
+    }
+
+    private boolean contextMenuClicked(double mx, double my, int button) {
+        if (button != 0) return false;
+        float itemH = 18f, menuW = 90f;
+        String query = state.getSearchQuery();
+        if (mx >= searchMenuX && mx <= searchMenuX + menuW && my >= searchMenuY && my <= searchMenuY + itemH) {
+            Minecraft.getInstance().keyboardHandler.setClipboard(query);
+            return true;
+        }
+        if (mx >= searchMenuX && mx <= searchMenuX + menuW && my >= searchMenuY + itemH && my <= searchMenuY + itemH * 2) {
+            String cb = Minecraft.getInstance().keyboardHandler.getClipboard();
+            if (!cb.isEmpty()) state.setSearchQuery(query + cb);
+            return true;
+        }
+        return false;
+    }
+
+    private void drawContextMenu(UiTree.Scope scope, TextRenderer tr) {
+        float itemH = 18f, menuW = 90f, menuH = itemH * 2, scale = 0.54f;
+        scope.roundRect(searchMenuX, searchMenuY, menuW, menuH, 6f, new Color(40, 36, 48, 248));
+        scope.outline(searchMenuX, searchMenuY, menuW, menuH, 6f, 0.6f, MD3Theme.withAlpha(MD3Theme.PRIMARY, 50));
+        scope.text("Copy", searchMenuX + 8f, searchMenuY + (itemH - tr.getHeight(scale)) / 2f, scale, MD3Theme.TEXT_PRIMARY);
+        scope.text("Paste", searchMenuX + 8f, searchMenuY + itemH + (itemH - tr.getHeight(scale)) / 2f, scale, MD3Theme.TEXT_PRIMARY);
+        scope.rect(searchMenuX + 4f, searchMenuY + itemH, menuW - 8f, 0.5f, MD3Theme.withAlpha(MD3Theme.OUTLINE, 60));
     }
 
     @Override
