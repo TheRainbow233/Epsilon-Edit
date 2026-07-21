@@ -253,7 +253,7 @@ public final class TrajectorySimulator {
             .inflate(1.0);
 
         EntityHitResult entityHit = ProjectileUtil.getEntityHitResult(
-            world, owner, posBefore, posAfter, searchBox,
+            owner, posBefore, posAfter, searchBox,
             e -> !e.isSpectator() && e.isAlive() && (e.isPickable() || e == mc.player)
                 && !owner.isPassengerOfSameVehicle(e),
             0f
