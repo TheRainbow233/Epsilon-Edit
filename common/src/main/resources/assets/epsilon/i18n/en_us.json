@@ -484,6 +484,22 @@
         "health": "Health",
         "check gapple": "Check Gapple"
       },
+      "backtrack": {
+        "_value": "Backtrack",
+        "target mode": {
+          "_value": "Target Mode",
+          "attack": "Attack",
+          "range": "Range"
+        },
+        "min delay": "Min Delay",
+        "max delay": "Max Delay",
+        "range": "Range",
+        "chance": "Chance",
+        "hurt time pause": "Hurt Time Pause",
+        "esp": "ESP",
+        "side color": "Side Color",
+        "line color": "Line Color"
+      },
       "auto weapon": {
         "_value": "Auto Weapon",
         "page": {

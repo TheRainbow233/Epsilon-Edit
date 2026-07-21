@@ -506,6 +506,22 @@
         "health": "生命值",
         "check gapple": "检查金苹果"
       },
+      "backtrack": {
+        "_value": "回溯",
+        "target mode": {
+          "_value": "目标模式",
+          "attack": "攻击触发",
+          "range": "范围触发"
+        },
+        "min delay": "最小延迟",
+        "max delay": "最大延迟",
+        "range": "范围",
+        "chance": "概率",
+        "hurt time pause": "受伤时暂停",
+        "esp": "透视",
+        "side color": "填充颜色",
+        "line color": "线条颜色"
+      },
       "auto weapon": {
         "_value": "自动武器",
         "page": {
