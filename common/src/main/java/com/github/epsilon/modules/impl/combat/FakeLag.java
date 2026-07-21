@@ -15,6 +15,7 @@ import com.github.epsilon.settings.impl.DoubleSetting;
 import com.github.epsilon.settings.impl.EnumSetting;
 import com.github.epsilon.settings.impl.IntSetting;
 import com.github.epsilon.settings.impl.MultiEnumSetting;
+import com.github.epsilon.utils.network.PacketUtils;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientboundExplodePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
@@ -88,7 +89,6 @@ public class FakeLag extends Module {
     private long lastFlushTime;
     private Vec3 lagStartPosition = Vec3.ZERO;
     private boolean hasEnemyNearby;
-    private boolean flushing; // guard against re-queueing during flush
     private final Random random = new Random();
 
     private record QueuedPacket(long timestamp, Packet<?> packet) {
@@ -149,9 +149,7 @@ public class FakeLag extends Module {
 
     @EventHandler
     private void onPacketSend(PacketEvent.Send event) {
-        // Never intercept packets we're flushing ourselves — prevents
-        // infinite re-queue loop: flush → send → event → queue → flush → ...
-        if (nullCheck() || flushing) return;
+        if (nullCheck()) return;
 
         Packet<?> packet = event.getPacket();
 
@@ -318,12 +316,7 @@ public class FakeLag extends Module {
         QueuedPacket queued = packetQueue.peek();
         if (queued != null && now - queued.timestamp >= nextDelayMs) {
             packetQueue.poll();
-            flushing = true;
-            try {
-                sendPacket(queued.packet);
-            } finally {
-                flushing = false;
-            }
+            PacketUtils.sendSilently(queued.packet);
         }
 
         // If all packets flushed, reset for next cycle
@@ -334,25 +327,12 @@ public class FakeLag extends Module {
     }
 
     private void flushAll() {
-        flushing = true;
-        try {
-            QueuedPacket queued;
-            while ((queued = packetQueue.poll()) != null) {
-                sendPacket(queued.packet);
-            }
-        } finally {
-            flushing = false;
+        QueuedPacket queued;
+        while ((queued = packetQueue.poll()) != null) {
+            PacketUtils.sendSilently(queued.packet);
         }
         lagStartPosition = Vec3.ZERO;
         nextDelayMs = getRandomDelay();
-    }
-
-    private void sendPacket(Packet<?> packet) {
-        if (mc.getConnection() == null) return;
-        try {
-            mc.getConnection().send(packet);
-        } catch (Exception ignored) {
-        }
     }
 
     // -- Dynamic mode helpers --
