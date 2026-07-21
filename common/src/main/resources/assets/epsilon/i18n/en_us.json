@@ -464,6 +464,20 @@
         },
         "swing hand": "Swing Hand"
       },
+      "auto projectile": {
+        "_value": "Auto Projectile",
+        "target mode": {
+          "_value": "Target Mode",
+          "killaura": "KillAura",
+          "nearest": "Nearest"
+        },
+        "range": "Range",
+        "max angle": "Max Angle",
+        "silent rotate": "Silent Rotate",
+        "max ticks": "Max Ticks",
+        "stop at ka range": "Stop At KA Range",
+        "throw delay": "Throw Delay"
+      },
       "auto totem": {
         "_value": "Auto Totem",
         "strict": "Strict",
@@ -1124,6 +1138,25 @@
       "timer": {
         "_value": "Timer",
         "multiplier": "Multiplier"
+      },
+      "trajectories": {
+        "_value": "Trajectories",
+        "master switch": "Master Switch",
+        "held items": {
+          "_value": "Held Items"
+        },
+        "always show bow": "Always Show Bow",
+        "held items color": "Held Items Color",
+        "entities": {
+          "_value": "Entities"
+        },
+        "active entities": "Active Entities",
+        "active arrows": "Active Arrows",
+        "entities color": "Entities Color",
+        "max ticks": "Max Ticks",
+        "line width": "Line Width",
+        "show impact": "Show Impact",
+        "impact color": "Impact Color"
       },
       "use cooldown": {
         "_value": "Use Cooldown",

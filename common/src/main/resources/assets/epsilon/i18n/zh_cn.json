@@ -486,6 +486,20 @@
         },
         "swing hand": "挥手"
       },
+      "auto projectile": {
+        "_value": "自动投掷",
+        "target mode": {
+          "_value": "目标模式",
+          "killaura": "杀戮光环",
+          "nearest": "最近"
+        },
+        "range": "范围",
+        "max angle": "最大角度",
+        "silent rotate": "静默旋转",
+        "max ticks": "最大模拟刻数",
+        "stop at ka range": "近战范围停手",
+        "throw delay": "投掷延迟"
+      },
       "auto totem": {
         "_value": "自动图腾",
         "strict": "严格模式",
@@ -1146,6 +1160,25 @@
       "timer": {
         "_value": "变速",
         "multiplier": "倍率"
+      },
+      "trajectories": {
+        "_value": "抛物线显示",
+        "master switch": "总开关",
+        "held items": {
+          "_value": "手持物品预测"
+        },
+        "always show bow": "始终显示弓箭",
+        "held items color": "手持物品颜色",
+        "entities": {
+          "_value": "实体轨迹"
+        },
+        "active entities": "实体轨迹",
+        "active arrows": "显示箭矢",
+        "entities color": "实体颜色",
+        "max ticks": "最大模拟刻数",
+        "line width": "线条宽度",
+        "show impact": "显示命中点",
+        "impact color": "命中点颜色"
       },
       "use cooldown": {
         "_value": "使用冷却",
