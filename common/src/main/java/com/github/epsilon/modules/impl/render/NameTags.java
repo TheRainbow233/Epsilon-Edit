@@ -216,7 +216,7 @@ public class NameTags extends Module {
     }
 
     private float getPerspectiveScale(float baseScale, float projectedHeight) {
-        float perspectiveFactor = Mth.clamp(36.0f / projectedHeight, 0.6f, 3.0f);
+        float perspectiveFactor = Mth.clamp(48.0f / projectedHeight, 1.5f, 3.5f);
         return baseScale * perspectiveFactor;
     }
 

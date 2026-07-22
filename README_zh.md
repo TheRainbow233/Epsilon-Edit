@@ -1,4 +1,4 @@
-<h1 align="center">Epsilon</h1>
+<h1 align="center">Epsilon-Edit</h1>
 <h4 align="center">
     <p>
         <a href="./README.md">English</a> |
@@ -28,6 +28,10 @@
 
 ## 📌 项目简介
 基于 NeoForge & Fabric 构建的多加载器现代化 Minecraft 辅助客户端，拥有先进的渲染系统和模块化架构。
+
+仅轻量化修改个人使用，仅供存档。
+
+如有疑问请前往原项目[Epsilon](https://github.com/NekoyaHouse/Epsilon)...
 
 ## 🚀 插件系统
 [Epsilon 插件模板](https://github.com/slmpc/Epsilon-Addon-Template)

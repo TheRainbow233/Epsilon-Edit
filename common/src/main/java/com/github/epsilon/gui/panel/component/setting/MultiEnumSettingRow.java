@@ -96,10 +96,6 @@ public class MultiEnumSettingRow extends SettingRow<MultiEnumSetting<?>> {
             scope.roundRect(boxX, boxY, BOX_SIZE, BOX_SIZE, BOX_RADIUS,
                     selected ? CHECKBOX_FILL : CHECKBOX_OUTLINE);
 
-            if (selected) {
-                scope.text("✓", boxX + 1.5f, textY, ROW_SCALE, CHECKMARK_COLOR);
-            }
-
             scope.text(display, textX, textY, ROW_SCALE,
                     selected ? MD3Theme.TEXT_PRIMARY : MD3Theme.TEXT_MUTED);
 

@@ -1443,6 +1443,7 @@
         "swap back": "停用还原",
         "skip ticks": "跳过刻数",
         "edge sneak": "边缘潜行",
+        "no sprint on ground": "地面禁止疾跑",
         "snap": "吸附",
         "rotation mode": {
           "_value": "旋转模式",
@@ -1457,7 +1458,10 @@
         "rotation speed": "旋转速度",
         "rotation back speed": "回转速度",
         "telly ticks": "Telly刻数",
+        "place delay min": "最小放置延迟",
+        "place delay max": "最大放置延迟",
         "swing hand": "挥手",
+        "swing randomize": "挥手随机",
         "render": "渲染",
         "fade": "变淡",
         "fade time": "淡出时间",
@@ -2113,6 +2117,8 @@
       },
       "target hud": {
         "_value": "目标 HUD",
+        "manual attack": "手动攻击",
+        "manual attack timeout": "手动攻击超时",
         "scale": "缩放",
         "width": "宽度",
         "height": "高度",

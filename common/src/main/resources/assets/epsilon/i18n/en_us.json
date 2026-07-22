@@ -1421,6 +1421,7 @@
         "swap back": "Swap Back",
         "skip ticks": "Skip Ticks",
         "edge sneak": "Edge Sneak",
+        "no sprint on ground": "No Sprint On Ground",
         "snap": "Snap",
         "rotation mode": {
           "_value": "Rotation Mode",
@@ -1435,7 +1436,10 @@
         "rotation speed": "Rotation Speed",
         "rotation back speed": "Rotation Back Speed",
         "telly ticks": "Telly Ticks",
+        "place delay min": "Place Delay Min",
+        "place delay max": "Place Delay Max",
         "swing hand": "Swing Hand",
+        "swing randomize": "Swing Randomize",
         "render": "Render",
         "fade": "Fade",
         "fade time": "Fade Time",
@@ -2091,6 +2095,8 @@
       },
       "target hud": {
         "_value": "Target HUD",
+        "manual attack": "Manual Attack",
+        "manual attack timeout": "Manual Attack Timeout",
         "scale": "Scale",
         "width": "Width",
         "height": "Height",

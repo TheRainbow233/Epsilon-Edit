@@ -117,9 +117,13 @@ public class Scaffold extends Module {
     private final IntSetting rotateSpeed = intSetting("Rotation Speed", 10, 1, 10, 1, () -> rotationMode.is(RotationMode.Rise));
     private final IntSetting rotateBackSpeed = intSetting("Rotation Back Speed", 10, 1, 10, 1, () -> mode.is(Mode.TellyBridge));
     private final IntSetting tellyTicks = intSetting("Telly Ticks", 1, 0, 6, 1, () -> mode.is(Mode.TellyBridge));
+    private final IntSetting placeDelayMin = intSetting("Place Delay Min", 0, 0, 20, 1);
+    private final IntSetting placeDelayMax = intSetting("Place Delay Max", 3, 0, 20, 1);
 
     private final BoolSetting edgeSneak = boolSetting("Edge Sneak", true);
+    private final BoolSetting noSprintOnGround = boolSetting("No Sprint On Ground", false);
     private final BoolSetting swingHand = boolSetting("Swing Hand", true);
+    private final BoolSetting swingRandomize = boolSetting("Swing Randomize", true, swingHand::getValue);
     private final BoolSetting render = boolSetting("Render", true);
     private final BoolSetting fade = boolSetting("Fade", true, render::getValue);
     private final IntSetting fadeTime = intSetting("Fade Time", 500, 0, 3000, 50, () -> render.getValue() && fade.getValue());
@@ -128,6 +132,9 @@ public class Scaffold extends Module {
     private final ColorSetting lineColor = colorSetting("Line Color", new Color(255, 105, 180), render::getValue);
 
     private int airTicks;
+    private int placeDelayCounter;
+    private boolean justPlaced;
+    private int edgeSneakCooldown;
     private int yLevel;
     private BlockPos blockPos;
     private Direction direction;
@@ -192,6 +199,9 @@ public class Scaffold extends Module {
     @Override
     protected void onEnable() {
         airTicks = 0;
+        placeDelayCounter = 0;
+        justPlaced = false;
+        edgeSneakCooldown = 0;
         blockPos = null;
         direction = null;
         rotation = null;
@@ -239,6 +249,11 @@ public class Scaffold extends Module {
             }
 
             if ((!reachable || mc.player.getDeltaMovement().horizontal().length() >= 1.5) && rotateCount <= 8 && getBlockCount() >= 1) {
+                if (placeDelayCounter > 0) {
+                    placeDelayCounter--;
+                    return;
+                }
+
                 Rot2f rotation = getRotation(blockPos, direction);
                 event.cancel();
 
@@ -252,8 +267,10 @@ public class Scaffold extends Module {
                 InteractionHand hand = blockResult.getHand();
                 InteractionResult result = mc.gameMode.useItemOn(mc.player, hand, new BlockHitResult(getVec3(blockPos, direction), direction, blockPos, false));
                 if (result.consumesAction()) {
-                    if (swingHand.getValue()) mc.player.swing(hand);
-                    else mc.getConnection().send(new ServerboundSwingPacket(hand));
+                    placeDelayCounter = getRandomDelay();
+                    justPlaced = true;
+
+                    doSwing(hand);
 
                     if (render.getValue()) {
                         renderBoxes.add(new RenderInfo(new AABB(blockPos.relative(direction)), lineColor.getValue(), sideColor.getValue(), System.currentTimeMillis(), fade.getValue(), shrink.getValue()));
@@ -276,11 +293,33 @@ public class Scaffold extends Module {
     @EventHandler
     private void onMoveInput(KeyboardInputEvent event) {
         if (mc.player.onGround() && mc.player.isMoving()) {
-            // Edge sneak: force crouch at platform edge to prevent falling
-            if (edgeSneak.getValue() && isAtEdge()) {
-                event.setSneak(true);
-                return;
+            // NoSprintOnGround: always walk (never sprint) while scaffold is active on ground
+            if (noSprintOnGround.getValue()) {
+                event.setSprint(false);
             }
+
+            // Edge sneak with hysteresis: once triggered, hold sneak for a few ticks
+            // to prevent flickering that causes bounce/fall at the edge.
+            if (edgeSneak.getValue() && mode.is(Mode.GodBridge)) {
+                if (isAtEdge()) {
+                    edgeSneakCooldown = 3; // hold sneak for at least 3 ticks
+                    event.setSprint(false); // kill sprint to prevent momentum bounce
+                }
+
+                if (edgeSneakCooldown > 0) {
+                    event.setSneak(true);
+                    edgeSneakCooldown--;
+                    return;
+                }
+            }
+
+            // When Place Delay > 0, suppress sprint right after placing to prevent
+            // the player from outrunning the next block placement (like LB's NoSprintOnPlace)
+            if (placeDelayMax.getValue() > 0 && justPlaced) {
+                event.setSprint(false);
+                justPlaced = false;
+            }
+
             // TellyBridge jump
             if (mode.is(Mode.TellyBridge) && !mc.options.keyJump.isDown()) {
                 event.setJump(true);
@@ -341,6 +380,13 @@ public class Scaffold extends Module {
             return;
         }
 
+        if (placeDelayCounter > 0) {
+            placeDelayCounter--;
+            if (!isAtEdge()) {
+                return;
+            }
+        }
+
         if (switch (raytrace.getValue()) {
             case Normal -> !RaytraceUtils.overBlock(Managers.ROTATION.getRotation(), blockPos);
             case Strict -> !RaytraceUtils.overBlock(Managers.ROTATION.getRotation(), blockPos, direction);
@@ -358,11 +404,10 @@ public class Scaffold extends Module {
 
         InteractionResult result = mc.gameMode.useItemOn(mc.player, hand, new BlockHitResult(getVec3(blockPos, direction), direction, blockPos, false));
         if (result.consumesAction()) {
-            if (swingHand.getValue()) {
-                mc.player.swing(hand);
-            } else {
-                mc.getConnection().send(new ServerboundSwingPacket(hand));
-            }
+            placeDelayCounter = getRandomDelay();
+            justPlaced = true;
+
+            doSwing(hand);
 
             if (render.getValue()) {
                 renderBoxes.add(new RenderInfo(new AABB(blockPos.relative(direction)), lineColor.getValue(), sideColor.getValue(), System.currentTimeMillis(), fade.getValue(), shrink.getValue()));
@@ -478,11 +523,15 @@ public class Scaffold extends Module {
                 )
         );
 
-        float[] pitchArray = {75.0F, 82.0F, 87.0F};
+        // Wide pitch range to avoid predictable patterns (Matrix checks for fixed pitch sets)
+        float[] pitchArray = {72.0F, 76.0F, 79.0F, 82.0F, 85.0F, 88.0F};
 
         for (float yaw : yawArray) {
             for (float pitch : pitchArray) {
-                Rot2f candidate = new Rot2f(yaw + MathUtils.getRandom(-0.3F, 0.3F), pitch + MathUtils.getRandom(-0.3F, 0.3F));
+                Rot2f candidate = new Rot2f(
+                        yaw + MathUtils.getRandom(-1.5F, 1.5F),
+                        pitch + MathUtils.getRandom(-1.5F, 1.5F)
+                );
                 boolean matches = raytrace.is(RaytraceMode.Normal) ? RaytraceUtils.overBlock(candidate, pos) : RaytraceUtils.overBlock(candidate, pos, direction);
                 if (matches) {
                     return candidate;
@@ -502,17 +551,61 @@ public class Scaffold extends Module {
     }
 
     /**
-     * Detects if the player is at an edge — the block below where they're walking
-     * forward is air, meaning they'd fall if they kept moving.
+     * Detects if the player is at an edge — the block ahead (in velocity or input
+     * direction) at Y-1 is air, meaning the player would fall if they kept moving.
+     * Uses a larger lookahead when sprinting.
      */
     private boolean isAtEdge() {
-        double[] dir = com.github.epsilon.utils.player.MoveUtils.forward(0.35);
-        BlockPos forwardPos = BlockPos.containing(
-                mc.player.getX() + dir[0],
-                mc.player.getY() - 1,
-                mc.player.getZ() + dir[1]
+        int floorY = Mth.floor(mc.player.getY()) - 1;
+
+        // Already over air — definitely at edge
+        BlockPos belowPos = BlockPos.containing(mc.player.getX(), floorY, mc.player.getZ());
+        if (mc.level.getBlockState(belowPos).canBeReplaced()) {
+            return true;
+        }
+
+        // Lookahead distance: larger when sprinting
+        double lookahead = mc.player.isSprinting() ? 0.8 : 0.5;
+
+        // Determine direction: prefer actual velocity, fall back to input direction
+        double dx = mc.player.getDeltaMovement().x;
+        double dz = mc.player.getDeltaMovement().z;
+        double hSpeed = Math.sqrt(dx * dx + dz * dz);
+
+        double dirX, dirZ;
+        if (hSpeed > 0.01) {
+            dirX = dx / hSpeed;
+            dirZ = dz / hSpeed;
+        } else {
+            // Standing still — use player's facing (yaw) direction
+            float yawRad = mc.player.getYRot() * Mth.DEG_TO_RAD;
+            dirX = -Mth.sin(yawRad);
+            dirZ = Mth.cos(yawRad);
+        }
+
+        BlockPos aheadPos = BlockPos.containing(
+                mc.player.getX() + dirX * lookahead,
+                floorY,
+                mc.player.getZ() + dirZ * lookahead
         );
-        return mc.level.getBlockState(forwardPos).isAir();
+        return mc.level.getBlockState(aheadPos).canBeReplaced();
+    }
+
+    private int getRandomDelay() {
+        int min = placeDelayMin.getValue();
+        int max = placeDelayMax.getValue();
+        if (max <= min) return min;
+        return min + (int) (Math.random() * (max - min + 1));
+    }
+
+    private void doSwing(InteractionHand hand) {
+        if (!swingHand.getValue()) {
+            mc.getConnection().send(new ServerboundSwingPacket(hand));
+        } else if (swingRandomize.getValue() && Math.random() < 0.5) {
+            mc.getConnection().send(new ServerboundSwingPacket(hand));
+        } else {
+            mc.player.swing(hand);
+        }
     }
 
     private boolean onAir() {

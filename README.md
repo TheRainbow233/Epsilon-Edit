@@ -1,4 +1,4 @@
-<h1 align="center">Epsilon</h1>
+<h1 align="center">Epsilon-Edit</h1>
 <h4 align="center">
     <p>
         <b>English</b> |
@@ -28,6 +28,10 @@
 
 ## 📌 Overview
 A modern multi loader Minecraft utility client built on NeoForge & Fabric with advanced rendering system and modular architecture.
+
+For personal use only, with minor lightweight modifications. For archival purposes only.。
+
+For any questions, please refer to the original project. [Epsilon](https://github.com/NekoyaHouse/Epsilon)
 
 ## 🚀 Addon System
 [Epsilon Addon Template](https://github.com/slmpc/Epsilon-Addon-Template)

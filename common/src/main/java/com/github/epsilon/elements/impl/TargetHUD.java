@@ -1,6 +1,9 @@
 package com.github.epsilon.elements.impl;
 
 import com.github.epsilon.elements.HudModule;
+import com.github.epsilon.events.bus.EventBus;
+import com.github.epsilon.events.bus.EventHandler;
+import com.github.epsilon.events.impl.AttackEntityEvent;
 import com.github.epsilon.graphics.LuminTexture;
 import com.github.epsilon.graphics.renderers.TextRenderer;
 import com.github.epsilon.graphics.shaders.BlurShader;
@@ -11,6 +14,7 @@ import com.github.epsilon.modules.impl.combat.KillAura;
 import com.github.epsilon.settings.impl.BoolSetting;
 import com.github.epsilon.settings.impl.ColorSetting;
 import com.github.epsilon.settings.impl.DoubleSetting;
+import com.github.epsilon.settings.impl.IntSetting;
 import com.github.epsilon.utils.render.animation.Easing;
 import com.google.common.base.Suppliers;
 import net.minecraft.client.DeltaTracker;
@@ -18,6 +22,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -36,6 +41,8 @@ public class TargetHUD extends HudModule {
         super("Target HUD", 0f, 0f, 180f, 80f);
     }
 
+    private final BoolSetting manualAttack = boolSetting("Manual Attack", true);
+    private final IntSetting manualAttackTimeout = intSetting("Manual Attack Timeout", 1000, 200, 5000, 100, manualAttack::getValue);
     private final DoubleSetting scale = doubleSetting("Scale", 0.9, 0.5, 2.0, 0.1);
     private final DoubleSetting width = doubleSetting("Width", 150.0, 100.0, 300.0, 1.0);
     private final DoubleSetting height = doubleSetting("Height", 52.0, 30.0, 100.0, 1.0);
@@ -73,6 +80,10 @@ public class TargetHUD extends HudModule {
     private LivingEntity renderedTarget;
     private float visibilityProgress = 0.0f;
     private long lastVisibilityUpdateMs = 0L;
+
+    // Manual attack tracking
+    private LivingEntity manualTarget;
+    private long lastManualAttackMs = 0L;
 
     private final Supplier<TextRenderer> textRendererSupplier = Suppliers.memoize(TextRenderer::create);
 
@@ -280,11 +291,31 @@ public class TargetHUD extends HudModule {
         graphics.pose().popMatrix();
     }
 
+    @EventHandler
+    private void onAttackEntity(AttackEntityEvent event) {
+        if (!manualAttack.getValue()) return;
+        Entity entity = event.getEntity();
+        if (entity instanceof LivingEntity living && entity != mc.player) {
+            manualTarget = living;
+            lastManualAttackMs = System.currentTimeMillis();
+        }
+    }
+
     private LivingEntity resolveTarget() {
+        // KillAura target takes priority
         LivingEntity target = KillAura.INSTANCE.target;
         if (isRenderableTarget(target)) {
             return target;
         }
+
+        // Manual attack target (within timeout)
+        if (manualAttack.getValue() && manualTarget != null) {
+            if (isRenderableTarget(manualTarget)
+                    && System.currentTimeMillis() - lastManualAttackMs < manualAttackTimeout.getValue()) {
+                return manualTarget;
+            }
+        }
+
         return mc.gui.screen() instanceof HudEditorScreen ? mc.player : null;
     }
 
