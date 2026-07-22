@@ -316,7 +316,8 @@
           "sea_level": "Sea Level",
           "planet": "Planet",
           "black_hole": "Black Hole",
-          "minecraft": "Minecraft"
+          "minecraft": "Minecraft",
+          "sirenian_dawn": "Sirenian Dawn"
         },
         "show welcome screen": "Show Welcome Screen",
         "sound notify": "Sound Notify",

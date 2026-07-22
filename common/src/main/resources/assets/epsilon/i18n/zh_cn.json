@@ -316,7 +316,8 @@
           "sea_level": "海平面",
           "planet": "行星",
           "black_hole": "黑洞",
-          "minecraft": "Minecraft"
+          "minecraft": "Minecraft",
+          "sirenian_dawn": "塞壬黎明"
         },
         "show welcome screen": "启动时显示欢迎页",
         "sound notify": "声音通知",

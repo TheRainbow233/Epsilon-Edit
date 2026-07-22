@@ -87,6 +87,7 @@ public class MainMenuScreen extends Screen {
             case PLANET -> GlslSandBox.PLANET;
             case BLACK_HOLE -> GlslSandBox.BLACK_HOLE;
             case MINECRAFT -> GlslSandBox.MINECRAFT;
+            case SIRENIAN_DAWN -> GlslSandBox.SIRENIAN_DAWN;
         };
 
         GlslSandBox.INSTANCE.render(background, LuminRenderSystem.toEpsilonMouseX(mouseX), LuminRenderSystem.toEpsilonMouseY(mouseY));
@@ -307,7 +308,8 @@ public class MainMenuScreen extends Screen {
         SEA_LEVEL,
         PLANET,
         BLACK_HOLE,
-        MINECRAFT
+        MINECRAFT,
+        SIRENIAN_DAWN
     }
 
 }

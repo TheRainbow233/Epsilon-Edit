@@ -1,7 +1,6 @@
 package com.github.epsilon.elements.impl;
 
 import com.github.epsilon.elements.HudModule;
-import com.github.epsilon.events.bus.EventBus;
 import com.github.epsilon.events.bus.EventHandler;
 import com.github.epsilon.events.impl.AttackEntityEvent;
 import com.github.epsilon.graphics.LuminTexture;

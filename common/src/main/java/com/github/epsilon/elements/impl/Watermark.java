@@ -40,6 +40,7 @@ public class Watermark extends HudModule {
             new Color(15, 15, 15, 145), () -> styleSetting.is(StyleMode.Rect));
     private final DoubleSetting cornerRadius = doubleSetting("Corner Radius", 4.0, 0.0, 20.0, 0.5,
             () -> styleSetting.is(StyleMode.Rect));
+    private final BoolSetting showVersion = boolSetting("Version", false);
     private final BoolSetting drawShadow = boolSetting("Drop Shadow", true,
             () -> styleSetting.is(StyleMode.Rect));
     private final DoubleSetting shadowBlur = doubleSetting("Shadow Blur", 2.2, 0.1, 32.0, 0.5,
@@ -60,9 +61,7 @@ public class Watermark extends HudModule {
         float padding = 6f * s;
         float radius = cornerRadius.getValue().floatValue() * s;
 
-        String text = styleSetting.is(StyleMode.Rect)
-                ? renderText.getValue() + " | " + Constants.VERSION
-                : renderText.getValue();
+        String text = renderText.getValue() + (showVersion.getValue() ? (" | " + Constants.VERSION) : "");
 
         float textWidth = textRenderer.getWidth(text, s, StaticFontLoader.DEFAULT);
         float textHeight = textRenderer.getHeight(s, StaticFontLoader.DEFAULT);
