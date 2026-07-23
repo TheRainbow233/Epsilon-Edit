@@ -6,6 +6,7 @@ import com.github.epsilon.managers.impl.FriendManager;
 import com.github.epsilon.managers.impl.HealthManager;
 import com.github.epsilon.managers.impl.NotificationManager;
 import com.github.epsilon.managers.impl.TimerManager;
+import com.github.epsilon.managers.impl.network.BlinkManager;
 import com.github.epsilon.managers.impl.network.ClientboundPacketManager;
 import com.github.epsilon.managers.impl.network.ServerboundPacketManager;
 import com.github.epsilon.managers.impl.rotations.RotationManager;
@@ -21,6 +22,7 @@ public class Managers {
     public static TargetManager TARGET;
     public static HealthManager HEALTH;
     public static ServerboundPacketManager C2SPACKET;
+    public static BlinkManager BLINK;
     public static ClientboundPacketManager S2CPACKET;
     public static FriendManager FRIEND;
     public static SoundManager SOUND;
@@ -32,6 +34,7 @@ public class Managers {
         TARGET = new TargetManager();
         HEALTH = new HealthManager();
         C2SPACKET = new ServerboundPacketManager();
+        BLINK = BlinkManager.INSTANCE;
         S2CPACKET = new ClientboundPacketManager();
         FRIEND = new FriendManager();
         SOUND = new SoundManager();
