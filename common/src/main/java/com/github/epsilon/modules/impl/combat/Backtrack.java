@@ -83,7 +83,6 @@ public class Backtrack extends Module {
     private boolean attackPending;
     private boolean holding;
     private long holdDelayMs;
-    private int nextDelayMs;
 
     /**
      * 从最新收到的包解析出的服务器真实位置。
@@ -112,7 +111,6 @@ public class Backtrack extends Module {
         attackPending = false;
         holding = false;
         holdDelayMs = 0;
-        nextDelayMs = 0;
         trackedPosition = Vec3.ZERO;
     }
 
@@ -162,6 +160,8 @@ public class Backtrack extends Module {
         // Periodic null-packet tick: check time-based expiry
         if (packet == null) {
             if (holding && Managers.C2SPACKET.isAboveTime(holdDelayMs)) {
+                // Rotate delay for the next lag window
+                holdDelayMs = randomDelay();
                 return; // action stays FLUSH → ServerboundPacketManager flushes
             }
             return;
@@ -305,15 +305,14 @@ public class Backtrack extends Module {
     // -- Holding control --
 
     private void startHolding() {
-        int min = Math.min(minDelay.getValue(), maxDelay.getValue());
-        int max = Math.max(minDelay.getValue(), maxDelay.getValue());
-        holdDelayMs = min + random.nextInt(Math.max(1, max - min + 1));
+        holdDelayMs = randomDelay();
         holding = true;
     }
 
-    private void stopHolding() {
-        holding = false;
-        holdDelayMs = 0;
+    private int randomDelay() {
+        int min = Math.min(minDelay.getValue(), maxDelay.getValue());
+        int max = Math.max(minDelay.getValue(), maxDelay.getValue());
+        return min + random.nextInt(Math.max(1, max - min + 1));
     }
 
     /**
