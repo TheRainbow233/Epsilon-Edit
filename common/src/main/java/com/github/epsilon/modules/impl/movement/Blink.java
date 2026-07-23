@@ -6,7 +6,7 @@ import com.github.epsilon.events.impl.BlinkPacketEvent.Action;
 import com.github.epsilon.events.impl.BlinkPacketEvent.TransferOrigin;
 import com.github.epsilon.events.impl.Render3DEvent;
 import com.github.epsilon.events.impl.SendPositionEvent;
-import com.github.epsilon.managers.impl.network.BlinkManager;
+import com.github.epsilon.managers.impl.network.ServerboundPacketManager;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
 import com.github.epsilon.settings.impl.BoolSetting;
@@ -110,7 +110,7 @@ public class Blink extends Module {
         float xRot = mc.player.getXRot();
         float yHeadRot = mc.player.getYHeadRot();
 
-        for (var snapshot : BlinkManager.INSTANCE.packetQueue) {
+        for (var snapshot : ServerboundPacketManager.INSTANCE.packetQueue) {
             if (snapshot.packet() instanceof ServerboundMovePlayerPacket mp) {
                 x = mp.getX(x);
                 y = mp.getY(y);
@@ -134,7 +134,7 @@ public class Blink extends Module {
     /** Count queued position-carrying movement packets. */
     private int getBlinkTicks() {
         int count = 0;
-        for (var snapshot : BlinkManager.INSTANCE.packetQueue) {
+        for (var snapshot : ServerboundPacketManager.INSTANCE.packetQueue) {
             if (snapshot.packet() instanceof ServerboundMovePlayerPacket) {
                 count++;
             }
@@ -146,11 +146,11 @@ public class Blink extends Module {
 
     private void releaseTick() {
         updateServerPosition();
-        BlinkManager.INSTANCE.flush(1);
+        ServerboundPacketManager.INSTANCE.flush(1);
     }
 
     private void releaseAll() {
-        BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+        ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
     }
 
     // -- Render fake player at server position --

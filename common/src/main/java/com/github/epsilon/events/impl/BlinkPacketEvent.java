@@ -3,15 +3,17 @@ package com.github.epsilon.events.impl;
 import net.minecraft.network.protocol.Packet;
 
 /**
- * Fired by {@link com.github.epsilon.managers.impl.network.BlinkManager} to ask modules
- * what should happen to a packet. Modules call {@link #setAction(Action)} to vote.
+ * Fired by {@link com.github.epsilon.managers.impl.network.ServerboundPacketManager}
+ * to ask modules what should happen to a packet. Modules call {@link #setAction(Action)}
+ * to vote.
  *
  * <p>Action priority: QUEUE &gt; PASS &gt; FLUSH.
  * Once a higher-priority action is set, lower-priority overrides are silently ignored.
  * The default action is FLUSH (packet passes through, queue is flushed).
  *
- * <p>Periodically, BlinkManager fires a null-packet event (getPacket() == null)
- * so modules can check time-based conditions (e.g. isAboveTime).
+ * <p>Periodically, ServerboundPacketManager fires a null-packet event
+ * (getPacket() == null) so modules can check time-based conditions
+ * (e.g. isAboveTime).
  */
 public class BlinkPacketEvent {
 

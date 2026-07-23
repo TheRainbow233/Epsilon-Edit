@@ -9,7 +9,7 @@ import com.github.epsilon.events.impl.PacketEvent;
 import com.github.epsilon.events.impl.PlayerTickEvent;
 import com.github.epsilon.events.impl.RespawnEvent;
 import com.github.epsilon.managers.Managers;
-import com.github.epsilon.managers.impl.network.BlinkManager;
+import com.github.epsilon.managers.impl.network.ServerboundPacketManager;
 import com.github.epsilon.managers.impl.target.TargetRequest;
 import com.github.epsilon.modules.Category;
 import com.github.epsilon.modules.Module;
@@ -100,7 +100,7 @@ public class FakeLag extends Module {
 
     @Override
     protected void onDisable() {
-        BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+        ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
         resetState();
     }
 
@@ -119,7 +119,7 @@ public class FakeLag extends Module {
 
         // Safety: never lag when dead, in water, or in GUI
         if (mc.player.isDeadOrDying() || mc.player.isInWater() || mc.gui.screen() != null) {
-            BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+            ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
             return;
         }
 
@@ -145,7 +145,7 @@ public class FakeLag extends Module {
 
         // Periodic null-packet tick: check window-based time expiry
         if (packet == null) {
-            if (BlinkManager.INSTANCE.isAboveTime(nextDelayMs)) {
+            if (ServerboundPacketManager.INSTANCE.isAboveTime(nextDelayMs)) {
                 nextDelayMs = getRandomDelay();
                 return; // action stays FLUSH → BlinkManager flushes
             }
@@ -204,13 +204,13 @@ public class FakeLag extends Module {
 
         // Flush on teleport / position sync
         if (packet instanceof ClientboundPlayerPositionPacket) {
-            BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+            ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
             return;
         }
 
         // Flush on respawn
         if (packet instanceof ClientboundRespawnPacket) {
-            BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+            ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
             return;
         }
 
@@ -218,7 +218,7 @@ public class FakeLag extends Module {
         if (packet instanceof ClientboundSetEntityMotionPacket motionPacket
                 && motionPacket.id() == mc.player.getId()
                 && !motionPacket.movement().equals(Vec3.ZERO)) {
-            BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+            ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
             return;
         }
 
@@ -226,14 +226,14 @@ public class FakeLag extends Module {
         if (packet instanceof ClientboundExplodePacket explodePacket) {
             if (explodePacket.playerKnockback().isPresent()
                     && !explodePacket.playerKnockback().get().equals(Vec3.ZERO)) {
-                BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+                ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
                 return;
             }
         }
 
         // Flush on damage / health change
         if (packet instanceof ClientboundSetHealthPacket) {
-            BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+            ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
         }
     }
 
@@ -241,13 +241,13 @@ public class FakeLag extends Module {
 
     @EventHandler
     private void onGameLeft(GameLeftEvent event) {
-        BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+        ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
         resetState();
     }
 
     @EventHandler
     private void onRespawn(RespawnEvent event) {
-        BlinkManager.INSTANCE.flush(TransferOrigin.OUTGOING);
+        ServerboundPacketManager.INSTANCE.flush(TransferOrigin.OUTGOING);
         resetState();
     }
 
@@ -284,7 +284,7 @@ public class FakeLag extends Module {
     // -- Dynamic mode helpers --
 
     private Vec3 getFirstBlinkPosition() {
-        var first = BlinkManager.INSTANCE.packetQueue.peek();
+        var first = ServerboundPacketManager.INSTANCE.packetQueue.peek();
         if (first != null && first.packet() instanceof ServerboundMovePlayerPacket mp
                 && mp.hasPosition()) {
             return mc.player.position();
