@@ -2,6 +2,9 @@ package com.github.epsilon.modules.impl.combat;
 
 import com.github.epsilon.events.bus.EventHandler;
 import com.github.epsilon.events.impl.AttackEntityEvent;
+import com.github.epsilon.events.impl.BlinkPacketEvent;
+import com.github.epsilon.events.impl.BlinkPacketEvent.Action;
+import com.github.epsilon.events.impl.BlinkPacketEvent.TransferOrigin;
 import com.github.epsilon.events.impl.ClientTickEvent;
 import com.github.epsilon.events.impl.GameLeftEvent;
 import com.github.epsilon.events.impl.PacketEvent;
@@ -35,15 +38,15 @@ import net.minecraft.world.phys.Vec3;
 
 import java.awt.*;
 import java.util.Random;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Backtrack 战斗模块。
  *
- * 通过延迟处理服务器发来的目标实体位置更新包，让客户端看到的目标位置比服务器实际时间晚，
+ * 通过 ServerboundPacketManager 的 BlinkPacketEvent 投票机制延迟处理服务器发来的
+ * 目标实体位置更新包，让客户端看到的目标位置比服务器实际时间晚，
  * 从而在攻击时扩大有效命中窗口。
  *
- * 参考 LiquidBounce 的 ModuleBacktrack 实现思路，并结合 Epsilon 现有事件/渲染系统。
+ * 参考 LiquidBounce 的 ModuleBacktrack 实现。
  */
 public class Backtrack extends Module {
 
@@ -80,11 +83,7 @@ public class Backtrack extends Module {
     private boolean attackPending;
     private boolean holding;
     private long holdDelayMs;
-
-    /**
-     * 队列中缓存的入站包（带时间戳）。
-     */
-    private final ConcurrentLinkedQueue<QueuedPacket> packetQueue = new ConcurrentLinkedQueue<>();
+    private int nextDelayMs;
 
     /**
      * 从最新收到的包解析出的服务器真实位置。
@@ -95,9 +94,6 @@ public class Backtrack extends Module {
 
     private final Random random = new Random();
 
-    private record QueuedPacket(long timestamp, Packet<?> packet) {
-    }
-
     // -- Lifecycle --
 
     @Override
@@ -107,7 +103,7 @@ public class Backtrack extends Module {
 
     @Override
     protected void onDisable() {
-        flushAll();
+        Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
         resetState();
     }
 
@@ -116,16 +112,16 @@ public class Backtrack extends Module {
         attackPending = false;
         holding = false;
         holdDelayMs = 0;
-        packetQueue.clear();
+        nextDelayMs = 0;
         trackedPosition = Vec3.ZERO;
     }
 
-    // -- Event handlers --
+    // -- Client tick --
 
     @EventHandler
     private void onClientTick(ClientTickEvent.Pre event) {
         if (nullCheck()) {
-            flushAll();
+            Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
             target = null;
             return;
         }
@@ -141,39 +137,42 @@ public class Backtrack extends Module {
 
             // 有利才延迟：如果服务器真实位置比当前延迟位置对玩家明显更有利，立即 flush。
             if (shouldFlushForAdvantage()) {
-                flushAll();
-            } else {
-                flushExpired();
+                Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
             }
         } else {
             if (holding) {
-                flushAll();
+                Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
             }
             target = null;
             attackPending = false;
         }
     }
 
+    // -- BlinkPacketEvent: vote on incoming entity movement packets --
+
     @EventHandler
-    private void onPacketReceive(PacketEvent.Receive event) {
+    private void onBlinkPacket(BlinkPacketEvent event) {
+        if (nullCheck()) return;
+
+        // Only handle incoming packets
+        if (event.getOrigin() != TransferOrigin.INCOMING) return;
+
         Packet<?> packet = event.getPacket();
 
-        // 安全包：立即 flush 并重置，避免卡包导致异常。
-        if (isSafetyPacket(packet)) {
-            flushAll();
-            target = null;
-            return;
-        }
-
-        if (nullCheck() || !holding || target == null) {
-            // 即使不在 holding 状态，也持续追踪服务器真实位置，
-            // 这样目标一进入 holding 状态时 trackedPosition 是准确的。
-            if (!nullCheck() && target != null && isTargetMovementPacket(packet)) {
-                updateTrackedPosition(packet);
+        // Periodic null-packet tick: check time-based expiry
+        if (packet == null) {
+            if (holding && Managers.C2SPACKET.isAboveTime(holdDelayMs)) {
+                return; // action stays FLUSH → ServerboundPacketManager flushes
             }
             return;
         }
 
+        // Not holding or no target → let everything through
+        if (!holding || target == null) {
+            return;
+        }
+
+        // Only delay movement packets for the tracked target
         if (!isTargetMovementPacket(packet)) {
             return;
         }
@@ -183,26 +182,40 @@ public class Backtrack extends Module {
             return;
         }
 
-        // 先更新服务器真实位置追踪。
+        // Update tracked position BEFORE queuing
         updateTrackedPosition(packet);
 
-        // 取消并延迟处理该包。
-        event.cancel();
-        packetQueue.add(new QueuedPacket(System.currentTimeMillis(), packet));
+        // Vote QUEUE → ServerboundPacketManager cancels the event and queues the packet
+        event.setAction(Action.QUEUE);
     }
+
+    // -- Packet receive (safety only) --
+
+    @EventHandler
+    private void onPacketReceive(PacketEvent.Receive event) {
+        Packet<?> packet = event.getPacket();
+
+        if (isSafetyPacket(packet)) {
+            Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
+            target = null;
+        }
+    }
+
+    // -- Attack handling --
 
     @EventHandler
     private void onAttack(AttackEntityEvent event) {
         if (event.getEntity() instanceof LivingEntity living) {
             attackPending = true;
 
-            // 攻击模式下以被攻击实体作为目标；范围模式下也记录，用于触发回溯。
             if (targetMode.is(TargetMode.Attack) || target == null) {
                 target = living;
                 trackedPosition = target.position();
             }
         }
     }
+
+    // -- ESP rendering --
 
     @EventHandler
     private void onRender3D(Render3DEvent event) {
@@ -221,13 +234,13 @@ public class Backtrack extends Module {
 
     @EventHandler
     private void onGameLeft(GameLeftEvent event) {
-        flushAll();
+        Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
         resetState();
     }
 
     @EventHandler
     private void onRespawn(RespawnEvent event) {
-        flushAll();
+        Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
         resetState();
     }
 
@@ -250,7 +263,6 @@ public class Backtrack extends Module {
                 trackedPosition = target.position();
             }
         } else if (target != null) {
-            // Attack 模式：验证目标是否仍然有效。
             if (!target.isAlive() || target.isDeadOrDying() || target.level() != mc.level) {
                 target = null;
             }
@@ -304,31 +316,6 @@ public class Backtrack extends Module {
         holdDelayMs = 0;
     }
 
-    // -- Flush logic --
-
-    /**
-     * 按时间释放已过期的包。
-     */
-    private void flushExpired() {
-        long now = System.currentTimeMillis();
-        QueuedPacket queued;
-        while ((queued = packetQueue.peek()) != null && now - queued.timestamp >= holdDelayMs) {
-            packetQueue.poll();
-            handlePacket(queued.packet);
-        }
-    }
-
-    /**
-     * 立即释放所有队列中的包。
-     */
-    private void flushAll() {
-        QueuedPacket queued;
-        while ((queued = packetQueue.poll()) != null) {
-            handlePacket(queued.packet);
-        }
-        stopHolding();
-    }
-
     /**
      * 有利才延迟策略：如果服务器真实位置比当前客户端延迟位置离玩家明显更近，
      * 则立即 flush，避免延迟反而导致打不到。
@@ -346,19 +333,6 @@ public class Backtrack extends Module {
 
         // 只有当真实位置明显更近（至少近 0.05^2）时才 flush，避免抖动。
         return trackedDistanceSq < delayedDistanceSq - 0.0025;
-    }
-
-    @SuppressWarnings("unchecked")
-    private void handlePacket(Packet<?> packet) {
-        if (mc.getConnection() == null || mc.getConnection().getConnection() == null) {
-            return;
-        }
-
-        try {
-            ((Packet<net.minecraft.network.PacketListener>) packet).handle(mc.getConnection().getConnection().getPacketListener());
-        } catch (Exception ignored) {
-            // 与 ClientboundPacketManager.flush 的错误处理一致，避免崩溃。
-        }
     }
 
     // -- Packet classification --
@@ -391,9 +365,6 @@ public class Backtrack extends Module {
         return false;
     }
 
-    /**
-     * 从客户端包中提取实体 id。返回 null 表示不是目标移动包或无法解析。
-     */
     private Integer getEntityId(Packet<?> packet) {
         if (packet instanceof ClientboundMoveEntityPacket movePacket) {
             Entity entity = movePacket.getEntity(mc.level);
@@ -418,9 +389,6 @@ public class Backtrack extends Module {
 
     /**
      * 根据入站包更新服务器真实位置追踪。
-     *
-     * 注意：holding 状态下目标实体的位置包被延迟，实体对象本身仍停留在旧位置，
-     * 因此 trackedPosition 需要独立维护，不能依赖 target.position()。
      */
     private void updateTrackedPosition(Packet<?> packet) {
         if (target == null) {
@@ -441,7 +409,6 @@ public class Backtrack extends Module {
             }
 
             if (movePacket.hasPosition()) {
-                // ClientboundMoveEntityPacket 使用 1/4096 block 的定点数表示相对位移。
                 trackedPosition = trackedPosition.add(
                         movePacket.getXa() / 4096.0,
                         movePacket.getYa() / 4096.0,
@@ -449,8 +416,6 @@ public class Backtrack extends Module {
                 );
             }
         }
-
-        // RotateHead 和 SetEntityMotion 不直接改变位置，不需要更新 trackedPosition。
     }
 
 }

@@ -44,9 +44,7 @@ import static com.github.epsilon.Constants.mc;
  */
 public class ServerboundPacketManager {
 
-    public static final ServerboundPacketManager INSTANCE = new ServerboundPacketManager();
-
-    private ServerboundPacketManager() {
+    public ServerboundPacketManager() {
         EventBus.INSTANCE.subscribe(this);
     }
 
@@ -270,9 +268,17 @@ public class ServerboundPacketManager {
         return EventBus.INSTANCE.post(new BlinkPacketEvent(packet, origin));
     }
 
+    @SuppressWarnings("unchecked")
     private void sendSnapshot(PacketSnapshot snapshot) {
         if (snapshot.origin == TransferOrigin.OUTGOING) {
             PacketUtils.sendSilently(snapshot.packet);
+        } else {
+            // Incoming: inject into netty pipeline (for Backtrack)
+            try {
+                ((Packet<net.minecraft.network.PacketListener>) snapshot.packet)
+                        .handle(mc.getConnection().getConnection().getPacketListener());
+            } catch (Exception ignored) {
+            }
         }
     }
 
