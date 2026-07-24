@@ -5,6 +5,7 @@ import com.github.epsilon.addon.EpsilonAddon;
 import com.github.epsilon.assets.config.LegacyConfigMigrator;
 import com.github.epsilon.elements.HudModule;
 import com.github.epsilon.managers.Managers;
+import com.github.epsilon.managers.impl.AccountManager;
 import com.github.epsilon.modules.Module;
 import com.github.epsilon.modules.impl.ClientSetting;
 import com.github.epsilon.settings.Setting;
@@ -38,6 +39,7 @@ public class ConfigHolder {
     private static final String ACTIVE_CONFIG_FILE_NAME = "active-config.txt";
     private static final String ROOT_SETTINGS_FILE_NAME = "client-settings.json";
     private static final String EXPORT_METADATA_FILE_NAME = "config-info.json";
+    private static final String ACCOUNTS_FILE_NAME = "accounts.json";
     private static final Pattern INVALID_CONFIG_NAME_PATTERN = Pattern.compile("[\\\\/:*?\"<>|\\p{Cntrl}]");
 
     private static final Path configDir = Paths.get(System.getProperty("user.home"), ".epsilon");
@@ -47,6 +49,7 @@ public class ConfigHolder {
     private static final Path activeConfigFile = configDir.resolve(ACTIVE_CONFIG_FILE_NAME);
     private static final Path rootSettingsFile = configDir.resolve(ROOT_SETTINGS_FILE_NAME);
     private static final Path legacyFriendFile = configDir.resolve(FRIENDS_FILE_NAME);
+    private static final Path accountsFile = configDir.resolve(ACCOUNTS_FILE_NAME);
 
     public static final ConfigHolder INSTANCE = new ConfigHolder();
 
@@ -727,6 +730,7 @@ public class ConfigHolder {
         }
         saveAddonsToDisk(AddonHolder.INSTANCE.getAddons(), configStorageDir);
         saveFriends(configStorageDir);
+        saveAccounts();
         saveRootClientSettings();
     }
 
@@ -1051,6 +1055,52 @@ public class ConfigHolder {
         } while (Files.exists(candidate));
 
         return candidate;
+    }
+
+    public void saveAccounts() {
+        try {
+            var arr = new JsonArray();
+            Managers.ACCOUNT.getAccounts().forEach(account -> {
+                var obj = new JsonObject();
+                obj.addProperty("name", account.name);
+                obj.addProperty("uuid", account.uuid);
+                obj.addProperty("token", account.token);
+                obj.addProperty("addedAt", account.addedAt);
+                obj.addProperty("type", account.type.name());
+                arr.add(obj);
+            });
+            Files.writeString(accountsFile, gson.toJson(arr), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            Constants.LOGGER.error("[ConfigHolder] Save accounts failed", e);
+        }
+    }
+
+    public List<AccountManager.Account> loadAccounts() {
+        var accounts = new ArrayList<AccountManager.Account>();
+        if (accountsFile == null || !Files.exists(accountsFile)) {
+            saveAccounts();
+            return accounts;
+        }
+        try {
+            var arr = JsonParser.parseString(
+                    Files.readString(accountsFile, StandardCharsets.UTF_8)).getAsJsonArray();
+            for (var el : arr) {
+                var obj = el.getAsJsonObject();
+                var a = new AccountManager.Account(
+                        obj.get("name").getAsString(),
+                        obj.get("uuid").getAsString(),
+                        obj.get("token").getAsString(),
+                        obj.has("addedAt") ? obj.get("addedAt").getAsLong() : 0,
+                        AccountManager.AccountType.valueOf(
+                                obj.get("type").getAsString())
+                );
+                accounts.add(a);
+            }
+            Constants.LOGGER.info("[ConfigHolder] Loaded {} accounts", accounts.size());
+        } catch (Exception e) {
+            Constants.LOGGER.error("[ConfigHolder] Load accounts failed", e);
+        }
+        return accounts;
     }
 
 }

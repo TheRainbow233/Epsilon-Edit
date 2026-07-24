@@ -31,6 +31,7 @@
       "mainmenu": {
         "singleplayer": "单人游戏",
         "multiplayer": "多人游戏",
+        "account": "账户管理",
         "options": "选项",
         "quit": "退出游戏"
       },
@@ -86,6 +87,29 @@
             "title": "导出成功",
             "message": "配置导出成功"
           }
+        }
+      },
+      "accounts": {
+        "_value": "账户",
+        "title": "账户管理",
+        "token_placeholder": "Token（可粘贴）",
+        "paste": "粘贴",
+        "add": "添加",
+        "login": "登录",
+        "delete": "删除",
+        "add_clipboard": "从剪贴板添加",
+        "done": "完成",
+        "offline": "离线登录",
+        "microsoft": "微软登录",
+        "status": {
+          "logging_in": "登录中…",
+          "failed": "失败",
+          "logged_in": "已登录",
+          "added": "已添加",
+          "opening_browser": "正在打开浏览器…",
+          "enter_name": "输入名称",
+          "token_empty": "Token 为空",
+          "select_account": "请选择账户"
         }
       },
       "dropdown": {
@@ -402,33 +426,6 @@
         "check chest": "检查胸甲",
         "check legs": "检查护腿",
         "check feet": "检查靴子"
-      },
-      "aim bot": {
-        "_value": "瞄准辅助",
-        "mode": {
-          "_value": "模式",
-          "aimassist": "瞄准辅助",
-          "bowaim": "弓箭瞄准"
-        },
-        "rotation": {
-          "_value": "旋转模式",
-          "client": "客户端",
-          "silent": "静默"
-        },
-        "aim strength": "瞄准强度",
-        "aim smooth": "瞄准平滑",
-        "aim time": "瞄准时间",
-        "only weapon": "仅武器",
-        "lmb activation": "左键激活",
-        "ignore walls": "无视墙壁",
-        "reaction time": "反应时间",
-        "ignore invis": "无视隐身",
-        "predict ticks": "预测刻数",
-        "bow fov": "弓箭视野",
-        "bow range": "弓箭范围",
-        "bow smooth": "弓箭平滑",
-        "bow through walls": "弓箭穿墙",
-        "bow client rotation": "弓箭客户端视角"
       },
       "auto clicker": {
         "_value": "连点器",

@@ -9,6 +9,7 @@ import com.github.epsilon.modules.impl.misc.Teams;
 import com.github.epsilon.utils.rotation.RotationUtils;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Monster;
@@ -128,6 +129,11 @@ public class TargetManager {
                 if (!request.animal()) return false;
             }
             case Monster _ -> {
+                if (!request.mob()) return false;
+            }
+            case Mob _ -> {
+                // Golems, EnderDragon, Bat, Shulker, and other
+                // non-Monster / non-Animal mob subtypes
                 if (!request.mob()) return false;
             }
             default -> {

@@ -164,6 +164,10 @@ public class Backtrack extends Module {
                 holdDelayMs = randomDelay();
                 return; // action stays FLUSH → ServerboundPacketManager flushes
             }
+            // Still within the delay window — protect the queue from being flushed
+            if (holding) {
+                event.setAction(Action.PASS);
+            }
             return;
         }
 
@@ -178,7 +182,7 @@ public class Backtrack extends Module {
         }
 
         Integer entityId = getEntityId(packet);
-        if (entityId == null || entityId != target.getId() || entityId == mc.player.getId()) {
+        if (target == null || entityId == null || entityId != target.getId() || entityId == mc.player.getId()) {
             return;
         }
 

@@ -75,7 +75,7 @@ mkdir -p reference && unzip common/build/moddev/artifacts/vanilla-*-sources.jar 
 | `managers/` | 各种管理器（Rotation、Target、Health、Friend、Sound、Notification、Packet 等） |
 | `mixins/` | Mixin 注入类 |
 | `modules/` | Module 基类、Category 枚举、`ClientSetting`、若干个内置模块（combat/movement/player/render 四大类） |
-| `settings/` | Setting 基类与 10 种设置类型（Bool、Button、Color、Double、Enum、Int、Keybind、RegistryList、StringList、String） |
+| `settings/` | Setting 基类与设置类型（Bool、Button、Color、Double、Enum、Int、Keybind、MultiEnum、RegistryList、StringList、String） |
 | `utils/` | 工具类（client、combat、math、network、player、render、rotation、timer、world） |
 
 ## Module 开发
@@ -128,6 +128,9 @@ public class MyModule extends Module {
 
     // String 设置
     private final StringSetting text = stringSetting("Text", "default");
+
+    // MultiEnum 设置 (name, EnumSet<EnumType> defaultSelection) — 多选枚举
+    private final MultiEnumSetting<FlushOn> flushOn = multiEnumSetting("Flush On", EnumSet.allOf(FlushOn.class));
 
     // -- 生命周期 --
     @Override
@@ -221,6 +224,7 @@ Module 启用时自动 `subscribe(this)`，禁用时自动 `unsubscribe(this)`�
 | `Render2DEvent.Level` / `Render2DEvent.HUD` | 2D 渲染（含 GuiGraphics） |
 | `Render3DEvent` / `AfterRender3DEvent` | 3D 渲染（含 PoseStack）及渲染后回调 |
 | `PacketEvent.Send` / `PacketEvent.Receive` | 网络包收发（可取消） |
+| `BlinkPacketEvent` | 数据包延迟投票（由 ServerboundPacketManager 触发，模块设 QUEUE/PASS/FLUSH） |
 | `KeyPressEvent` | 按键按下/释放 |
 | `MousePressEvent` | 鼠标按键 |
 | `AttackEntityEvent` / `AttackBlockEvent` / `DestroyBlockEvent` | 攻击实体/方块/破坏方块 |
@@ -311,9 +315,10 @@ Epsilon 把"持有者"（Holders，负责初始化与生命周期）和"管理�
 | `FriendManager` | 好友管理 |
 | `SoundManager` | 音效播放 |
 | `NotificationManager` | 通知系统 |
-| `ServerboundPacketManager` / `ClientboundPacketManager` | 网络包管理 |
+| `AccountManager` | 账号管理（SESSION / MICROSOFT / CRACKED 三种类型，Session 注入、Microsoft OAuth、离线登录） |
+| `ServerboundPacketManager` / `ClientboundPacketManager` | 网络包管理（ServerboundPacketManager 同时也是集中式数据包延迟基础设施，见下文） |
 
-> 注意：Rotation / Target / Health / C2SPacket / S2CPacket / Friend / Sound / Notification 这些管理器实例通过 `Managers.ROTATION`、`Managers.TARGET` 等静态字段访问，而非各自类的 `INSTANCE`。
+> 注意：Rotation / Target / Health / C2SPacket / S2CPacket / Friend / Sound / Notification / Account 这些管理器实例通过 `Managers.ROTATION`、`Managers.TARGET`、`Managers.ACCOUNT` 等静态字段访问，而非各自类的 `INSTANCE`。
 
 ### RotationManager (`common/.../managers/impl/rotations/RotationManager.java`)
 
@@ -395,6 +400,141 @@ private void onTick(PlayerTickEvent.Pre event) {
 - 需要基于当前平滑角度判断时，使用 `Managers.ROTATION.getRotation()`，或通过 `getYaw()` / `getPitch()` 读取
 - `Managers.switchRotationManager()` 切换实现时会通过 `copyStateFrom()` 把当前状态迁移到新实例
 - 模块禁用时应清理 pending 状态并 `InvUtils.swapBack()` 恢复物品栏
+
+### ServerboundPacketManager — 集中式数据包延迟（BlinkManager）
+
+`ServerboundPacketManager`（持有 `Managers.C2SPACKET` 引用）是集中式数据包延迟基础设施。多个模块（FakeLag、Blink、Backtrack 等）共享同一个队列，通过 `BlinkPacketEvent` 投票决定每个数据包的处理方式。
+
+**数据流**：
+```
+PacketEvent.Send / PacketEvent.Receive 触发
+  → ServerboundPacketManager（LOWEST 优先级，最后执行）
+    → 触发 BlinkPacketEvent(packet, origin)
+      → 模块投票：QUEUE / PASS / FLUSH
+    → QUEUE → 取消原事件，数据包加入共享队列
+    → FLUSH → 刷新队列，放行当前数据包
+    → PASS   → 放行当前数据包，不刷新队列
+```
+
+**BlinkPacketEvent.Action 优先级**：`QUEUE(2) > PASS(1) > FLUSH(0)`。一旦高优先级 action 被设定，低优先级覆盖无效。
+
+**主要 API**：
+
+```java
+import com.github.epsilon.managers.Managers;
+import com.github.epsilon.managers.impl.network.ServerboundPacketManager;
+import com.github.epsilon.events.impl.BlinkPacketEvent;
+import com.github.epsilon.events.impl.BlinkPacketEvent.Action;
+import com.github.epsilon.events.impl.BlinkPacketEvent.TransferOrigin;
+
+// 模块监听 BlinkPacketEvent，投票决定数据包处理方式
+@EventHandler
+private void onBlinkPacket(BlinkPacketEvent event) {
+    if (event.getOrigin() != TransferOrigin.OUTGOING) return;
+    Packet<?> packet = event.getPacket();
+    if (packet == null) return; // 周期性空包 tick，用于时间检查
+
+    if (shouldLag) {
+        event.setAction(Action.QUEUE); // 取消数据包，加入队列
+    }
+    // 不设置 action：默认 FLUSH → 刷新队列 + 放行
+}
+
+// 检查最早排队数据包是否已等待超时
+boolean expired = Managers.C2SPACKET.isAboveTime(delayMs);
+
+// 刷新队列
+Managers.C2SPACKET.flush(TransferOrigin.OUTGOING);
+Managers.C2SPACKET.flush(TransferOrigin.INCOMING);
+Managers.C2SPACKET.flush(count);           // 刷新前 N 个位置数据包
+Managers.C2SPACKET.flush(predicate);       // 条件刷新
+
+// 取消（回退玩家位置，丢弃移动包，刷新其余）
+Managers.C2SPACKET.cancel();
+
+// 修改队列中的数据包（如 NoFall 改写 onGround）
+Managers.C2SPACKET.rewrite(ServerboundMovePlayerPacket.class, pkt -> { ... });
+```
+
+**开发要点**：
+- 模块**不应自建队列**——全部通过 BlinkPacketEvent 投票，由 ServerboundPacketManager 统一管理
+- 空包 tick（`event.getPacket() == null`）：用于时间检查（`isAboveTime`）。超时返回 FLUSH 触发刷新；未超时必须设置 PASS 或 QUEUE 保护队列
+- 出站方向用 `TransferOrigin.OUTGOING`（FakeLag、Blink），入站方向用 `TransferOrigin.INCOMING`（Backtrack）
+- FakeLag 的 FlushOn / recoil 等安全刷新直接调 `Managers.C2SPACKET.flush(TransferOrigin.OUTGOING)`
+
+## 账号管理 & Session 登录
+
+### AccountManager (`common/.../managers/impl/AccountManager.java`)
+
+通过 `Managers.ACCOUNT` 访问（非单例 INSTANCE），管理三种类型账号的增删改查、登录注入与持久化。
+
+- **持久化**：账号由 `ConfigHolder` 统一管理，保存到 `~/.epsilon/accounts.json`（JSON 数组）。`AccountManager()` 构造器会从 `ConfigHolder.INSTANCE.loadAccounts()` 读取
+- **登录注入**：通过 `MixinMinecraftSession` accessor 直接设置 `mc.user`
+- **三种账号类型**（`AccountType` 枚举）：`SESSION`（旧 MC client token）、`MICROSOFT`（Azure client 浏览器 OAuth）、`CRACKED`（离线模式，仅用户名）
+
+```java
+// 添加 Session 账号（后台线程，完整 MS 认证链）
+Account a = Managers.ACCOUNT.addSessionAccount("eyJ...");
+
+// 添加离线账号
+Account a = Managers.ACCOUNT.addOfflineAccount("PlayerName");
+
+// 浏览器 Microsoft OAuth 登录（阻塞等待用户完成）
+Account a = Managers.ACCOUNT.microsoftLogin();
+
+// 登录并注入 Minecraft session（按类型分发认证链）
+Managers.ACCOUNT.login(account);       // 自动判断类型
+Managers.ACCOUNT.loginOffline(account); // 离线登录（无网络请求）
+
+// 获取账号列表 / 当前账号 / 删除
+List<Account> accounts = Managers.ACCOUNT.getAccounts();
+Account current = Managers.ACCOUNT.getCurrentAccount();
+Managers.ACCOUNT.remove(account);
+```
+
+### MicrosoftAuth (`common/.../utils/auth/MicrosoftAuth.java`)
+
+Microsoft → Xbox → Minecraft 认证链，**两套 client 凭证**：
+
+| 用途 | Client ID                          | Scope | XBL RpsTicket |
+|------|------------------------------------|-------|---------------|
+| Session token refresh | `00000000402B5328`（MC 旧 client） | `service::user.auth.xboxlive.com::MBI_SSL` | 裸 access_token |
+| 浏览器 OAuth | （Azure 注册）                     | `XboxLive.signin offline_access` | `d=` + access_token |
+
+```java
+// Session / CRACKED 账号刷新
+AuthResult result = MicrosoftAuth.authenticate(refreshToken);
+
+// MICROSOFT 账号刷新（Azure client，d= 前缀）
+AuthResult result = MicrosoftAuth.authenticateMicrosoft(refreshToken);
+
+// 浏览器 OAuth 登录（启本地 HTTP 服务器，阻塞等待回调）
+AuthResult result = MicrosoftAuth.loginWithBrowser();
+```
+
+- HTTP 使用 `java.net.HttpURLConnection`
+- 本地 HTTP 服务器用 `com.sun.net.httpserver.HttpServer`，回调 `http://localhost:<随机端口>/login`
+- 浏览器授权 URL：`login.live.com/oauth20_authorize.srf`，token 端点：`login.live.com/oauth20_token.srf`
+
+### AccountManagerScreen (`common/.../gui/screen/AccountManagerScreen.java`)
+
+使用 Epsilon `UiScene` + `UiTree` 声明式渲染管线，`ClientSettingTextField` 处理文本输入：
+
+- **布局**：标题 → 分隔线 → 账号列表（选中/悬停高亮）→ Token 输入框 + Paste 按钮 → 操作按钮（Add/Login/Delete/Offline/Microsoft）→ Done
+- **账号状态**：登录过程中在账号行右侧显示内联状态（"Logging in..." → 紫色；"Failed" → 红色；"Logged in" → 紫色）。切换选中账号时清除旧状态
+- **文本缩限**：Token 过长时失焦显示尾部 `…`，聚焦时 `scope.scissor()` 裁剪
+- **事件**：鼠标命中测试（账号行/按钮/输入框），键盘路由到 `ClientSettingTextField`
+- **按钮行为**：
+  - `Add`：Session token 认证（`addSessionAccount`）
+  - `Login`：按账号类型分发认证链
+  - `Delete`：移除账号
+  - `Offline Login`：输入框文本作为玩家名离线登录
+  - `Microsoft Login`：打开浏览器 OAuth → 等待回调 → 完成认证
+  - `Add from Clipboard`：读剪贴板 → Session token 认证
+
+### MixinMinecraftSession (`common/.../mixins/MixinMinecraftSession.java`)
+
+`@Mixin(Minecraft.class)` + `@Accessor("user")` — 暴露 `epsilon$getUser()` / `epsilon$setUser(User)` 用于 Session 注入。
 
 ## Lumin Graphics 渲染系统
 

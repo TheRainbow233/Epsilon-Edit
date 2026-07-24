@@ -31,6 +31,7 @@
       "mainmenu": {
         "singleplayer": "Singleplayer",
         "multiplayer": "Multiplayer",
+        "account": "Account",
         "options": "Options",
         "quit": "Quit"
       },
@@ -86,6 +87,29 @@
             "title": "Export Successful",
             "message": "Config exported successfully"
           }
+        }
+      },
+      "accounts": {
+        "_value": "Accounts",
+        "title": "Account Manager",
+        "token_placeholder": "Token (paste or type)",
+        "paste": "Paste",
+        "add": "Add",
+        "login": "Login",
+        "delete": "Delete",
+        "add_clipboard": "Add from Clipboard",
+        "done": "Done",
+        "offline": "Offline Login",
+        "microsoft": "Microsoft Login",
+        "status": {
+          "logging_in": "Logging in...",
+          "failed": "Failed",
+          "logged_in": "Logged in",
+          "added": "Added",
+          "opening_browser": "Opening browser...",
+          "enter_name": "Enter a name",
+          "token_empty": "Token empty",
+          "select_account": "Select an account"
         }
       },
       "dropdown": {

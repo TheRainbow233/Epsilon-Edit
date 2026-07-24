@@ -28,6 +28,24 @@ public final class EpsilonTranslations {
             Gui.MAINMENU_MULTIPLAYER,
             Gui.MAINMENU_OPTIONS,
             Gui.MAINMENU_QUIT,
+            Gui.ACCOUNTS_TITLE,
+            Gui.ACCOUNTS_TOKEN_PLACEHOLDER,
+            Gui.ACCOUNTS_PASTE,
+            Gui.ACCOUNTS_ADD,
+            Gui.ACCOUNTS_LOGIN,
+            Gui.ACCOUNTS_DELETE,
+            Gui.ACCOUNTS_ADD_CLIPBOARD,
+            Gui.ACCOUNTS_DONE,
+            Gui.ACCOUNTS_OFFLINE,
+            Gui.ACCOUNTS_MICROSOFT,
+            Gui.ACCOUNTS_STATUS_LOGGING_IN,
+            Gui.ACCOUNTS_STATUS_FAILED,
+            Gui.ACCOUNTS_STATUS_LOGGED_IN,
+            Gui.ACCOUNTS_STATUS_ADDED,
+            Gui.ACCOUNTS_STATUS_OPENING_BROWSER,
+            Gui.ACCOUNTS_STATUS_ENTER_NAME,
+            Gui.ACCOUNTS_STATUS_TOKEN_EMPTY,
+            Gui.ACCOUNTS_STATUS_SELECT,
             Gui.TAB_GENERAL,
             Gui.TAB_FRIEND,
             Gui.TAB_CONFIG,
@@ -142,8 +160,28 @@ public final class EpsilonTranslations {
 
         public static final TranslateComponent MAINMENU_SINGLEPLAYER = create("gui", "mainmenu.singleplayer");
         public static final TranslateComponent MAINMENU_MULTIPLAYER = create("gui", "mainmenu.multiplayer");
+        public static final TranslateComponent MAINMENU_ACCOUNT = create("gui", "mainmenu.account");
         public static final TranslateComponent MAINMENU_OPTIONS = create("gui", "mainmenu.options");
         public static final TranslateComponent MAINMENU_QUIT = create("gui", "mainmenu.quit");
+
+        public static final TranslateComponent ACCOUNTS_TITLE = create("gui", "accounts.title");
+        public static final TranslateComponent ACCOUNTS_TOKEN_PLACEHOLDER = create("gui", "accounts.token_placeholder");
+        public static final TranslateComponent ACCOUNTS_PASTE = create("gui", "accounts.paste");
+        public static final TranslateComponent ACCOUNTS_ADD = create("gui", "accounts.add");
+        public static final TranslateComponent ACCOUNTS_LOGIN = create("gui", "accounts.login");
+        public static final TranslateComponent ACCOUNTS_DELETE = create("gui", "accounts.delete");
+        public static final TranslateComponent ACCOUNTS_ADD_CLIPBOARD = create("gui", "accounts.add_clipboard");
+        public static final TranslateComponent ACCOUNTS_DONE = create("gui", "accounts.done");
+        public static final TranslateComponent ACCOUNTS_OFFLINE = create("gui", "accounts.offline");
+        public static final TranslateComponent ACCOUNTS_MICROSOFT = create("gui", "accounts.microsoft");
+        public static final TranslateComponent ACCOUNTS_STATUS_LOGGING_IN = create("gui", "accounts.status.logging_in");
+        public static final TranslateComponent ACCOUNTS_STATUS_FAILED = create("gui", "accounts.status.failed");
+        public static final TranslateComponent ACCOUNTS_STATUS_LOGGED_IN = create("gui", "accounts.status.logged_in");
+        public static final TranslateComponent ACCOUNTS_STATUS_ADDED = create("gui", "accounts.status.added");
+        public static final TranslateComponent ACCOUNTS_STATUS_OPENING_BROWSER = create("gui", "accounts.status.opening_browser");
+        public static final TranslateComponent ACCOUNTS_STATUS_ENTER_NAME = create("gui", "accounts.status.enter_name");
+        public static final TranslateComponent ACCOUNTS_STATUS_TOKEN_EMPTY = create("gui", "accounts.status.token_empty");
+        public static final TranslateComponent ACCOUNTS_STATUS_SELECT = create("gui", "accounts.status.select_account");
 
         public static final TranslateComponent TAB_GENERAL = create("gui", "tab.general");
         public static final TranslateComponent TAB_FRIEND = create("gui", "tab.friend");

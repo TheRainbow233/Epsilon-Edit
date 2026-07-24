@@ -49,6 +49,7 @@ public class MainMenuScreen extends Screen {
             Screen screen = this.minecraft.options.skipMultiplayerWarning ? new JoinMultiplayerScreen(this) : new SafetyScreen(this);
             this.minecraft.gui.setScreen(screen);
         }));
+        entries.add(new MenuEntry("Accounts", () -> minecraft.gui.setScreen(AccountManagerScreen.INSTANCE)));
         entries.add(new MenuEntry("GUI", () -> minecraft.gui.setScreen(switch (ClientSetting.INSTANCE.guiMode.getValue()) {
             case Panel -> PanelScreen.INSTANCE;
             case Dropdown -> DropdownScreen.INSTANCE;
@@ -221,6 +222,7 @@ public class MainMenuScreen extends Screen {
         return switch (title) {
             case "Singleplayer" -> EpsilonTranslations.Gui.MAINMENU_SINGLEPLAYER.getTranslatedName();
             case "Multiplayer" -> EpsilonTranslations.Gui.MAINMENU_MULTIPLAYER.getTranslatedName();
+            case "Accounts" -> EpsilonTranslations.Gui.MAINMENU_ACCOUNT.getTranslatedName();
             case "Options" -> EpsilonTranslations.Gui.MAINMENU_OPTIONS.getTranslatedName();
             case "Quit" -> EpsilonTranslations.Gui.MAINMENU_QUIT.getTranslatedName();
             default -> title;

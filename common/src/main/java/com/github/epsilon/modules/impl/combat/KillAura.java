@@ -17,11 +17,13 @@ import com.github.epsilon.utils.render.esp.CircleESP;
 import com.github.epsilon.utils.render.esp.DeobfESP;
 import com.github.epsilon.utils.render.esp.FireflyESP;
 import com.github.epsilon.utils.rotation.Priority;
+import com.github.epsilon.utils.rotation.RaytraceUtils;
 import com.github.epsilon.utils.rotation.RotationUtils;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.HitResult;
 
 import java.awt.*;
@@ -159,11 +161,10 @@ public class KillAura extends Module {
             target = targets.getFirst();
         }
 
-        attacks += MathUtils.getRandom(minCPS.getValue().doubleValue(), maxCPS.getValue().doubleValue()) / 20.0;
-
         if (target != null) {
             Managers.ROTATION.setRotations(RotationUtils.getRotationsToEntity(target), rotationSpeed.getValue().floatValue(), Priority.Medium);
             if (mode.is(Mode.OnePointEight)) {
+                attacks += MathUtils.getRandom(minCPS.getValue().doubleValue(), maxCPS.getValue().doubleValue()) / 20.0;
                 while (attacks >= 1.0) {
                     clickTargets(targets);
                     attacks -= 1.0;
@@ -178,21 +179,30 @@ public class KillAura extends Module {
 
     private void clickTargets(List<LivingEntity> targets) {
         if (targetMode.is(TargetMode.Multiple)) {
-            for (LivingEntity target : targets) {
-                if (throughWalls.getValue() || (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY)) {
-                    doAttack(target);
+            for (LivingEntity entity : targets) {
+                Managers.ROTATION.setRotations(RotationUtils.getRotationsToEntity(entity), rotationSpeed.getValue().floatValue(), Priority.Medium);
+                if (throughWalls.getValue() || canAttack(entity)) {
+                    doAttack(entity);
                 }
             }
             switchIndex++;
         } else {
-            if (throughWalls.getValue() || (mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY
-                    && mc.crosshairPickEntity != null && mc.crosshairPickEntity.is(target))) {
+            if (throughWalls.getValue() || canAttack(target)) {
                 doAttack(target);
             }
             if (targetMode.is(TargetMode.Switch)) {
                 switchIndex++;
             }
         }
+    }
+
+    private boolean canAttack(LivingEntity entity) {
+        HitResult result = RaytraceUtils.raytrace(
+                RotationUtils.getRotationsToEntity(entity),
+                aimRange.getValue()
+        );
+        return result instanceof EntityHitResult entityHit
+                && entityHit.getEntity() == entity;
     }
 
     private void doAttack(LivingEntity target) {

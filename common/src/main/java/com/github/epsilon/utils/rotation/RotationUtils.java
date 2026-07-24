@@ -84,8 +84,10 @@ public class RotationUtils {
 
     public static boolean isInFov(Entity entity, float fov) {
         if (fov >= 360) return true;
-        float yawDiff = Math.abs(Mth.wrapDegrees(RotationUtils.getRotationsToEntity(entity).getYaw() - mc.player.getYRot()));
-        return yawDiff <= fov / 2.0;
+        Rot2f rotations = getRotationsToEntity(entity);
+        float yawDiff = Math.abs(Mth.wrapDegrees(rotations.getYaw() - mc.player.getYRot()));
+        float pitchDiff = Math.abs(rotations.getPitch() - mc.player.getXRot());
+        return yawDiff <= fov / 2.0 && pitchDiff <= fov / 2.0;
     }
 
     public static Rot2f getRotationsToEntity(Entity entity) {
