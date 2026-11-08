@@ -4,7 +4,6 @@ import com.github.epsilon.assets.i18n.EpsilonLanguageManager
 import com.github.epsilon.assets.i18n.I18NFileGenerator
 import com.github.epsilon.graphics.schedulers.render3d.Render3DScheduler
 import com.github.epsilon.managers.*
-import com.github.epsilon.managers.network.ClientboundPacketManager
 import com.github.epsilon.managers.network.ServerboundPacketManager
 import com.github.epsilon.managers.target.TargetManager
 import com.github.epsilon.modules.impl.ClientSetting
@@ -26,7 +25,6 @@ object EpsilonCommon {
 
         // 预热 Managers（Kotlin object 在首次访问时完成类初始化）
         ExecutorManager.hashCode()
-        ClientboundPacketManager.hashCode()
         ServerboundPacketManager.hashCode()
         TargetManager.hashCode()
         ExtrapolationManager.hashCode()

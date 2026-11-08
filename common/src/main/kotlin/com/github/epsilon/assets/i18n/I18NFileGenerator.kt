@@ -8,6 +8,7 @@ import com.github.epsilon.modules.Module
 import com.github.epsilon.settings.Setting
 import com.github.epsilon.settings.SettingGroup
 import com.github.epsilon.settings.impl.EnumSetting
+import com.github.epsilon.settings.impl.MultiEnumSetting
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
 import java.io.File
@@ -119,6 +120,11 @@ object I18NFileGenerator {
         I18NJson.addTranslation(root, settingKey, "")
 
         if (setting is EnumSetting<*>) {
+            for (mode in setting.modes) {
+                I18NJson.addTranslation(root, settingKey + "." + mode.toString().lowercase(), "")
+            }
+        }
+        if (setting is MultiEnumSetting<*>) {
             for (mode in setting.modes) {
                 I18NJson.addTranslation(root, settingKey + "." + mode.toString().lowercase(), "")
             }

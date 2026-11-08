@@ -54,11 +54,14 @@ object ModuleManager : AlwaysListening {
 
         // Combat
         addModule(AimBot)
-        addModule(AnchorAura)
+        addModule(AntiBot)
+        addModule(Backtrack)
         addModule(AutoClicker)
         addModule(AutoDtap)
         addModule(AutoMend)
         addModule(AutoMine)
+        addModule(AutoProjectile)
+        addModule(AutoRod)
         addModule(AutoThrow)
         addModule(AutoTotem)
         addModule(AutoTrap)
@@ -77,6 +80,7 @@ object ModuleManager : AlwaysListening {
         addModule(PacketMine)
         addModule(SilentAim)
         addModule(SpearKill)
+        addModule(SuperKnockback)
         addModule(TriggerBot)
 
         // Player
@@ -113,6 +117,7 @@ object ModuleManager : AlwaysListening {
         addModule(Dolphin)
         addModule(AutoSprint)
         addModule(Blink)
+        addModule(FastWeb)
         addModule(Eagle)
         addModule(AutoMap)
         addModule(Flight)

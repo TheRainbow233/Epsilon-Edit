@@ -43,6 +43,8 @@
         },
         "current": "当前",
         "login": "登录",
+        "login_failed": "登录失败",
+        "add_failed": "添加账号失败",
         "delete": {
           "confirm": "确认删除？"
         },
@@ -710,6 +712,25 @@
         "target damage": "显示目标伤害",
         "self damage": "显示自身伤害"
       },
+      "fake lag": {
+        "_value": "假延迟",
+        "mode": {
+          "_value": "模式",
+          "constant": "固定",
+          "dynamic": "动态"
+        },
+        "range": "范围",
+        "delay min": "最小延迟",
+        "delay max": "最大延迟",
+        "recoil time": "回弹时间",
+        "flush on": {
+          "_value": "立即发送",
+          "entityinteract": "实体交互",
+          "blockinteract": "方块交互",
+          "action": "动作"
+        },
+        "pause on use": "使用时暂停"
+      },
       "auto clicker": {
         "_value": "连点器",
         "button": {
@@ -747,6 +768,30 @@
           "normal": "普通",
           "silent": "静默"
         },
+        "swing hand": "挥手"
+      },
+      "auto projectile": {
+        "_value": "自动投掷物",
+        "target mode": {
+          "_value": "目标模式",
+          "killaura": "击杀光环",
+          "nearest": "最近目标"
+        },
+        "range": "范围",
+        "max angle": "最大角度",
+        "silent rotate": "静默转向",
+        "max ticks": "最大刻数",
+        "stop at ka range": "击杀光环范围内停止",
+        "throw delay": "投掷延迟"
+      },
+      "auto rod": {
+        "_value": "自动鱼竿",
+        "range": "范围",
+        "hit timeout": "命中超时",
+        "pull on out of range": "脱出范围收回",
+        "cooldown min": "冷却最小值",
+        "cooldown max": "冷却最大值",
+        "chance": "触发概率",
         "swing hand": "挥手"
       },
       "auto throw": {
@@ -1370,6 +1415,26 @@
         "villagers": "村民",
         "invisible": "隐身"
       },
+      "super knockback": {
+        "_value": "超级击退",
+        "mode": {
+          "_value": "模式",
+          "packet": "数据包",
+          "sprinttap": "冲刺点按"
+        },
+        "hurt time": "受伤时间",
+        "chance": "触发概率",
+        "conditions": {
+          "_value": "触发条件",
+          "onlyfacing": "仅背对",
+          "onlyonground": "仅地面",
+          "notinwater": "不在水中"
+        },
+        "only on move": "仅移动时",
+        "only forward": "仅前进",
+        "resprint min": "重新冲刺最小延迟",
+        "resprint max": "重新冲刺最大延迟"
+      },
       "trigger bot": {
         "_value": "自动攻击",
         "range": "范围",
@@ -1646,6 +1711,16 @@
         "slow move": "慢移动",
         "slow move tick": "慢移动刻数",
         "fake player": "假人"
+      },
+      "fast web": {
+        "_value": "快速蜘蛛网",
+        "mode": {
+          "_value": "模式",
+          "vanilla": "原版",
+          "grim": "Grim"
+        },
+        "only on ground": "仅地面",
+        "motion y": "垂直速度"
       },
       "eagle": {
         "_value": "自动蹲起搭",

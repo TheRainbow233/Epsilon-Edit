@@ -32,4 +32,10 @@ repo
 .vscode
 .trae
 .claude
+.superpowers/
+docs/superpowers/
 /reference
+/references
+
+# local scratch
+.tmp/

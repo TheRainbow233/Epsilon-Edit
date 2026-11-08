@@ -116,6 +116,23 @@ interface SettingHost {
         onChanged: ((E) -> Unit)? = null,
     ): EnumSetting<E> = addSetting(EnumSetting(name, defaultValue, visible, onChanged))
 
+    fun <E : Enum<E>> multiEnumSetting(
+        name: String,
+        enumClass: Class<E>,
+        defaultValue: Collection<E>,
+        visible: Setting.Visibility? = null,
+        onChanged: ((Set<E>) -> Unit)? = null,
+    ): MultiEnumSetting<E> =
+        addSetting(MultiEnumSetting(name, enumClass, defaultValue, visible, onChanged))
+
+    fun <E : Enum<E>> multiEnumSetting(
+        name: String,
+        defaultValue: Collection<E>,
+        visible: Setting.Visibility? = null,
+        onChanged: ((Set<E>) -> Unit)? = null,
+    ): MultiEnumSetting<E> =
+        multiEnumSetting(name, MultiEnumSetting.enumClassOf(defaultValue), defaultValue, visible, onChanged)
+
     fun colorSetting(
         name: String,
         defaultValue: Color,

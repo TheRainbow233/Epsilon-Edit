@@ -12,6 +12,7 @@ object SettingViewFactory {
             is KeybindSetting -> KeybindSettingRow(setting)
             is BoolSetting -> BoolSettingRow(setting)
             is EnumSetting<*> -> EnumSettingRow(setting)
+            is MultiEnumSetting<*> -> MultiEnumSettingRow(setting)
             is IntSetting -> IntSettingRow(setting)
             is DoubleSetting -> DoubleSettingRow(setting)
             is ColorSetting -> ColorSettingRow(setting)

@@ -82,6 +82,7 @@ fun UiScope.SettingRow(
             is ColorSettingRow -> ColorSettingRow(row, hoverProgress)
             is DoubleSettingRow -> DoubleSettingRow(row, hoverProgress)
             is EnumSettingRow -> EnumSettingRow(row, hoverProgress)
+            is MultiEnumSettingRow -> MultiEnumSettingRow(row, hoverProgress)
             is IntSettingRow -> IntSettingRow(row, hoverProgress)
             is KeybindSettingRow -> KeybindSettingRow(row, hoverProgress, mouseX, mouseY)
             is RegistryListSettingRow -> RegistryListSettingRow(row, hoverProgress)

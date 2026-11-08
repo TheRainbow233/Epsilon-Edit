@@ -43,6 +43,8 @@
         },
         "current": "Current",
         "login": "Login",
+        "login_failed": "Login failed",
+        "add_failed": "Add account failed",
         "delete": {
           "confirm": "Sure?"
         },
@@ -710,6 +712,25 @@
         "target damage": "Target Damage",
         "self damage": "Self Damage"
       },
+      "fake lag": {
+        "_value": "Fake Lag",
+        "mode": {
+          "_value": "Mode",
+          "constant": "Constant",
+          "dynamic": "Dynamic"
+        },
+        "range": "Range",
+        "delay min": "Delay Min",
+        "delay max": "Delay Max",
+        "recoil time": "Recoil Time",
+        "flush on": {
+          "_value": "Flush On",
+          "entityinteract": "Entity Interact",
+          "blockinteract": "Block Interact",
+          "action": "Action"
+        },
+        "pause on use": "Pause On Use"
+      },
       "auto clicker": {
         "_value": "Auto Clicker",
         "button": {
@@ -747,6 +768,30 @@
           "normal": "Normal",
           "silent": "Silent"
         },
+        "swing hand": "Swing Hand"
+      },
+      "auto projectile": {
+        "_value": "Auto Projectile",
+        "target mode": {
+          "_value": "Target Mode",
+          "killaura": "Kill Aura",
+          "nearest": "Nearest"
+        },
+        "range": "Range",
+        "max angle": "Max Angle",
+        "silent rotate": "Silent Rotate",
+        "max ticks": "Max Ticks",
+        "stop at ka range": "Stop At KA Range",
+        "throw delay": "Throw Delay"
+      },
+      "auto rod": {
+        "_value": "Auto Rod",
+        "range": "Range",
+        "hit timeout": "Hit Timeout",
+        "pull on out of range": "Pull On Out Of Range",
+        "cooldown min": "Cooldown Min",
+        "cooldown max": "Cooldown Max",
+        "chance": "Chance",
         "swing hand": "Swing Hand"
       },
       "auto throw": {
@@ -1370,6 +1415,26 @@
         "villagers": "Villagers",
         "invisible": "Invisible"
       },
+      "super knockback": {
+        "_value": "Super Knockback",
+        "mode": {
+          "_value": "Mode",
+          "packet": "Packet",
+          "sprinttap": "SprintTap"
+        },
+        "hurt time": "Hurt Time",
+        "chance": "Chance",
+        "conditions": {
+          "_value": "Conditions",
+          "onlyfacing": "Only Facing",
+          "onlyonground": "Only On Ground",
+          "notinwater": "Not In Water"
+        },
+        "only on move": "Only On Move",
+        "only forward": "Only Forward",
+        "resprint min": "ReSprint Min",
+        "resprint max": "ReSprint Max"
+      },
       "trigger bot": {
         "_value": "Trigger Bot",
         "range": "Range",
@@ -1646,6 +1711,16 @@
         "slow move": "Slow Move",
         "slow move tick": "Slow Move Tick",
         "fake player": "Fake Player"
+      },
+      "fast web": {
+        "_value": "Fast Web",
+        "mode": {
+          "_value": "Mode",
+          "vanilla": "Vanilla",
+          "grim": "Grim"
+        },
+        "only on ground": "Only On Ground",
+        "motion y": "Motion Y"
       },
       "eagle": {
         "_value": "Eagle",

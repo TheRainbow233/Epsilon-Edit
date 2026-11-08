@@ -359,6 +359,7 @@ class ModuleButton(val module: Module) : Component() {
             if (setting is BoolSetting) return BoolWidget(setting)
             if (setting is IntSetting) return IntSliderWidget(setting)
             if (setting is DoubleSetting) return DoubleSliderWidget(setting)
+            if (setting is MultiEnumSetting<*>) return MultiEnumWidget(setting)
             if (setting is EnumSetting<*>) return EnumWidget(setting)
             if (setting is ColorSetting) return ColorWidget(setting)
             if (setting is RegistryListSetting<*>) return RegistryListSettingWidget(setting)

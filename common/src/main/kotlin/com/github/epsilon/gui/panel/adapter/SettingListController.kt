@@ -26,6 +26,8 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
 
     private var activeEnumRow: EnumSettingRow? = null
 
+    private var activeMultiEnumRow: MultiEnumSettingRow? = null
+
     fun getPopupHost(): PanelPopupHost {
         return popupHost
     }
@@ -91,6 +93,12 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
         if (activeRow != null && popupHost.activePopup == null) {
             afterLuminCommit { activeRow.setDropdownOpen(false) }
             activeEnumRow = null
+        }
+
+        val activeMultiRow = activeMultiEnumRow
+        if (activeMultiRow != null && popupHost.activePopup == null) {
+            afterLuminCommit { activeMultiRow.setDropdownOpen(false) }
+            activeMultiEnumRow = null
         }
 
         appendRows(ownerKey, settings, viewport, scroll, rowWidth, scope, mouseX, mouseY, callback)
@@ -218,6 +226,12 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
                             activeEnumRow = row
                         }
 
+                        is MultiEnumSettingRow -> {
+                            popupHost.open(createMultiEnumPopup(row, bounds, popupBounds))
+                            row.setDropdownOpen(true)
+                            activeMultiEnumRow = row
+                        }
+
                         is ColorSettingRow -> popupHost.open(createColorPopup(row, bounds, popupBounds))
                         is StringListSettingRow -> popupHost.open(createStringListSettingPopup(row, popupBounds))
                         is RegistryListSettingRow -> popupHost.open(createRegistryListSettingPopup(row, popupBounds))
@@ -256,6 +270,11 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
             activeRow.setDropdownOpen(false)
             activeEnumRow = null
         }
+        val activeMultiRow = activeMultiEnumRow
+        if (activeMultiRow != null) {
+            activeMultiRow.setDropdownOpen(false)
+            activeMultiEnumRow = null
+        }
     }
 
     fun resetTransientState() {
@@ -264,6 +283,11 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
         if (activeRow != null) {
             activeRow.setDropdownOpen(false)
             activeEnumRow = null
+        }
+        val activeMultiRow = activeMultiEnumRow
+        if (activeMultiRow != null) {
+            activeMultiRow.setDropdownOpen(false)
+            activeMultiEnumRow = null
         }
     }
 
@@ -510,6 +534,25 @@ class SettingListController(private val popupHost: PanelPopupHost) : AutoCloseab
             popupY = chipBounds.y - popupHeight - 4.0f
         }
         return EnumSelectPopup(UiRect(popupX, popupY, popupWidth, popupHeight), enumRow.getSetting())
+    }
+
+    private fun createMultiEnumPopup(
+        multiRow: MultiEnumSettingRow,
+        rowBounds: UiRect,
+        popupBounds: UiRect,
+    ): MultiEnumSelectPopup {
+        val chipBounds = multiRow.getChipBounds(measureTextRenderer.asUiTextMetrics(), rowBounds)
+        val optionCount = multiRow.getSetting().modes.size
+        val visibleCount = minOf(optionCount, MultiEnumSelectPopup.MAX_VISIBLE_ITEMS)
+        val popupHeight = visibleCount * 24.0f + 12.0f
+        val popupWidth = maxOf(120.0f, chipBounds.width + 24.0f)
+        val popupX = maxOf(popupBounds.x + MD3Theme.PANEL_VIEWPORT_INSET, chipBounds.right() - popupWidth)
+        var popupY = chipBounds.bottom() + 4.0f
+        val maxBottom = popupBounds.bottom() - MD3Theme.PANEL_VIEWPORT_INSET
+        if (popupY + popupHeight > maxBottom) {
+            popupY = chipBounds.y - popupHeight - 4.0f
+        }
+        return MultiEnumSelectPopup(UiRect(popupX, popupY, popupWidth, popupHeight), multiRow.getSetting())
     }
 
     private fun createColorPopup(colorRow: ColorSettingRow, rowBounds: UiRect, popupBounds: UiRect): ColorPickerPopup {

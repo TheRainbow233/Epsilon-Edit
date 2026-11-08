@@ -1,10 +1,8 @@
 package com.github.epsilon.mixins;
 
 import com.github.epsilon.events.impl.PacketEvent;
-import com.github.epsilon.kernel.network.ClientIdentityHider;
-import com.github.epsilon.kernel.network.NetworkUtils;
-import com.github.epsilon.managers.network.ClientboundPacketManager;
-import com.github.epsilon.managers.network.ServerboundPacketManager;
+import com.github.epsilon.utils.network.ClientIdentityHider;
+import com.github.epsilon.utils.network.NetworkUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.netty.channel.ChannelFutureListener;
@@ -28,11 +26,7 @@ public class MixinConnection {
         if (packet instanceof ClientboundBundlePacket bundle) {
             List<Packet<? super ClientGamePacketListener>> packets = new ArrayList<>();
             for (Packet<? super ClientGamePacketListener> subPacket : bundle.subPackets()) {
-                if (ClientboundPacketManager.INSTANCE.onPacketReceive(subPacket)) {
-                    continue;
-                }
-                PacketEvent.Receive event = new PacketEvent.Receive(subPacket);
-                event.post();
+                PacketEvent.Receive event = new PacketEvent.Receive(subPacket).post();
                 if (!event.isCancelled()) {
                     packets.add((Packet<? super ClientGamePacketListener>) event.getPacket());
                 }
@@ -40,11 +34,7 @@ public class MixinConnection {
             original.call(new ClientboundBundlePacket(packets), listener);
             return;
         }
-        if (ClientboundPacketManager.INSTANCE.onPacketReceive(packet)) {
-            return;
-        }
-        PacketEvent.Receive event = new PacketEvent.Receive(packet);
-        event.post();
+        PacketEvent.Receive event = new PacketEvent.Receive(packet).post();
         if (!event.isCancelled()) {
             original.call(event.getPacket(), listener);
         }
@@ -52,9 +42,6 @@ public class MixinConnection {
 
     @WrapOperation(method = "send(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V", at = @At(value = "INVOKE", target = "Lnet/minecraft/network/Connection;sendPacket(Lnet/minecraft/network/protocol/Packet;Lio/netty/channel/ChannelFutureListener;Z)V"))
     private void onSendPacket(Connection instance, Packet<?> packet, ChannelFutureListener listener, boolean flush, Operation<Void> original) {
-        if (ServerboundPacketManager.INSTANCE.onPacketSend(packet)) {
-            return;
-        }
         if (NetworkUtils.INSTANCE.getBypassedPackets().contains(packet)) {
             NetworkUtils.INSTANCE.getBypassedPackets().remove(packet);
             Packet<?> filteredPacket = ClientIdentityHider.INSTANCE.filterServerboundPacket(packet);
@@ -62,8 +49,7 @@ public class MixinConnection {
                 original.call(instance, filteredPacket, listener, flush);
             }
         } else {
-            PacketEvent.Send event = new PacketEvent.Send(packet);
-            event.post();
+            PacketEvent.Send event = new PacketEvent.Send(packet).post();
             if (!event.isCancelled()) {
                 Packet<?> filteredPacket = ClientIdentityHider.INSTANCE.filterServerboundPacket(event.getPacket());
                 if (filteredPacket != null) {
