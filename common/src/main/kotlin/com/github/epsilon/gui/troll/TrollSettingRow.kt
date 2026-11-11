@@ -115,6 +115,7 @@ class TrollSettingRow {
                     s.translatedValue
                 }
 
+            is MultiEnumSetting<*> -> s.getTranslatedSummary()
             is StringSetting -> s.value
             is StringListSetting -> s.value.size.toString() + " " + EpsilonTranslations.Gui.LIST_ENTRIES.getTranslatedName()
             is RegistryListSetting<*> -> s.value.size.toString() + " " + EpsilonTranslations.Gui.LIST_ENTRIES.getTranslatedName()
