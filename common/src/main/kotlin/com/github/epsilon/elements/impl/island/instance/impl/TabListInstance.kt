@@ -4,6 +4,7 @@ import com.github.epsilon.assets.i18n.EpsilonTranslations
 import com.github.epsilon.elements.impl.island.instance.LandInstance
 import com.github.epsilon.elements.impl.island.pattern.LCPattern
 import com.github.epsilon.graphics.renderers.TextRenderer
+import com.github.epsilon.graphics.text.ComponentText
 import com.github.epsilon.graphics.text.StaticFontLoader
 import com.github.epsilon.graphics.text.ttf.TtfFontLoader
 import com.github.epsilon.gui.lib.*
@@ -17,6 +18,7 @@ import net.minecraft.network.chat.Component
 import net.minecraft.network.chat.Style
 import net.minecraft.resources.Identifier
 import net.minecraft.util.FormattedCharSequence
+import net.minecraft.util.FormattedCharSink
 import net.minecraft.world.level.GameType
 import net.minecraft.world.scores.*
 import net.minecraft.world.scores.criteria.ObjectiveCriteria
@@ -320,16 +322,10 @@ class TabListInstance(
     }
 
     private fun flatten(component: Component, fallback: Color, renderer: TextRenderer): List<TextSegment> {
-        val raw: MutableList<TextSegment> = ArrayList()
-        component.visit(
-            { style: Style, text: String ->
-                val color = resolveStyleColor(style, fallback)
-                appendLegacySegments(raw, text, color, color, ROW_SCALE, renderer)
-                Optional.empty<Any>()
-            },
-            Style.EMPTY
+        return spoofSegments(
+            ComponentText.runs(component, fallback, ROW_SCALE, renderer),
+            fallback, ROW_SCALE, renderer
         )
-        return mergeSegments(raw, ROW_SCALE, renderer)
     }
 
     private fun splitComponentByNewline(
@@ -340,188 +336,49 @@ class TabListInstance(
         renderer: TextRenderer,
     ) {
         if (component == null) return
+        for (line in ComponentText.splitLines(component, fallback, scale, renderer)) {
+            val spoofed = spoofSegments(line, fallback, scale, renderer)
+            if (isBlankLine(spoofed)) continue
+            output.add(spoofed)
+        }
+    }
 
-        val lines: MutableList<MutableList<TextSegment>> = ArrayList()
-        lines.add(ArrayList())
-        component.visit(
-            { style: Style, text: String ->
-                val color = resolveStyleColor(style, fallback)
-                appendLegacyIntoLines(lines, text, color, color, scale, renderer)
-                Optional.empty<Any>()
-            },
-            Style.EMPTY
+    /**
+     * ACSpoof 开启时先替换文本再按颜色合并；关闭时直接复用 ComponentText 的结果。
+     */
+    private fun spoofSegments(
+        runs: List<ComponentText.Run>,
+        fallback: Color,
+        scale: Float,
+        renderer: TextRenderer,
+    ): List<TextSegment> {
+        if (!ACSpoof.isEnabled) {
+            return runs.map { TextSegment(it.text, it.color, it.width) }
+        }
+
+        val original = FormattedCharSequence.composite(
+            runs.map { FormattedCharSequence.forward(it.text, Style.EMPTY.withColor(it.color.rgb)) }
         )
-
-        for (rawLine in lines) {
-            val line = mergeSegments(rawLine, scale, renderer)
-            if (isBlankLine(line)) continue
-            output.add(line)
+        val replacement = ACSpoof.text(original, TEXT_DEFAULT.rgb)
+        if (replacement === original) {
+            return runs.map { TextSegment(it.text, it.color, it.width) }
         }
-    }
 
-    private fun appendLegacyIntoLines(
-        lines: MutableList<MutableList<TextSegment>>,
-        text: String?,
-        baseColor: Color,
-        resetColor: Color,
-        scale: Float,
-        renderer: TextRenderer,
-    ) {
-        if (text.isNullOrEmpty()) return
-        var currentColor = baseColor
-        val builder = StringBuilder()
-
-        var i = 0
-        while (i < text.length) {
-            val character = text[i]
-            if (character == '\n') {
-                flushSegment(lines.last(), builder, currentColor, scale, renderer)
-                lines.add(ArrayList())
-                currentColor = baseColor
-                i++
-                continue
-            }
-            if (character == '\u00a7' && i + 1 < text.length) {
-                val code = Character.toLowerCase(text[i + 1])
-                if (code == 'x') {
-                    val parsed = parseLegacyHexColor(text, i)
-                    if (parsed != null) {
-                        flushSegment(lines.last(), builder, currentColor, scale, renderer)
-                        currentColor = parsed
-                        i += 13
-                        i++
-                        continue
-                    }
-                }
-                val mapped = legacyColor(code)
-                if (mapped != null) {
-                    flushSegment(lines.last(), builder, currentColor, scale, renderer)
-                    currentColor = mapped
-                    i += 2
-                    continue
-                }
-                if (code == 'r') {
-                    flushSegment(lines.last(), builder, currentColor, scale, renderer)
-                    currentColor = resetColor
-                }
-                i += 2
-                continue
-            }
-            builder.append(character)
-            i++
-        }
-        flushSegment(lines.last(), builder, currentColor, scale, renderer)
-    }
-
-    private fun appendLegacySegments(
-        output: MutableList<TextSegment>,
-        text: String?,
-        baseColor: Color,
-        resetColor: Color,
-        scale: Float,
-        renderer: TextRenderer,
-    ) {
-        if (text.isNullOrEmpty()) return
-        var currentColor = baseColor
-        val builder = StringBuilder()
-
-        var i = 0
-        while (i < text.length) {
-            val character = text[i]
-            if (character == '\u00a7' && i + 1 < text.length) {
-                val code = Character.toLowerCase(text[i + 1])
-                if (code == 'x') {
-                    val parsed = parseLegacyHexColor(text, i)
-                    if (parsed != null) {
-                        flushSegment(output, builder, currentColor, scale, renderer)
-                        currentColor = parsed
-                        i += 14
-                        continue
-                    }
-                }
-                val mapped = legacyColor(code)
-                if (mapped != null) {
-                    flushSegment(output, builder, currentColor, scale, renderer)
-                    currentColor = mapped
-                    i += 2
-                    continue
-                }
-                if (code == 'r') {
-                    flushSegment(output, builder, currentColor, scale, renderer)
-                    currentColor = resetColor
-                }
-                i += 2
-                continue
-            }
-            builder.append(if (character == '\n') ' ' else character)
-            i++
-        }
-        flushSegment(output, builder, currentColor, scale, renderer)
-    }
-
-    private fun mergeSegments(raw: List<TextSegment>, scale: Float, renderer: TextRenderer): List<TextSegment> {
-        if (raw.isEmpty()) return emptyList()
-
-        var segments = raw
-        if (ACSpoof.isEnabled) {
-            val original = FormattedCharSequence.composite(
-                segments.map { FormattedCharSequence.forward(it.text, Style.EMPTY.withColor(it.color.rgb)) }
-            )
-            val replacement = ACSpoof.text(original, TEXT_DEFAULT.rgb)
-            if (replacement !== original) {
-                val spoofed: MutableList<TextSegment> = ArrayList()
-                replacement.accept { _, style, codePoint ->
-                    spoofed.add(
-                        TextSegment(
-                            String(Character.toChars(codePoint)), resolveStyleColor(style, TEXT_DEFAULT), 0f
-                        )
+        val spoofed = ArrayList<ComponentText.Run>(runs.size)
+        replacement.accept(object : FormattedCharSink {
+            override fun accept(index: Int, style: Style, codePoint: Int): Boolean {
+                spoofed.add(
+                    ComponentText.Run(
+                        String(Character.toChars(codePoint)),
+                        ComponentText.styleColor(style, fallback),
+                        0f,
                     )
-                    true
-                }
-                segments = spoofed
+                )
+                return true
             }
-        }
-
-        val merged: MutableList<TextSegment> = ArrayList()
-        val builder = StringBuilder()
-        var color = segments.first().color
-        for (segment in segments) {
-            if (color == segment.color) {
-                builder.append(segment.text)
-                continue
-            }
-            addMergedSegment(merged, builder, color, scale, renderer)
-            color = segment.color
-            builder.append(segment.text)
-        }
-        addMergedSegment(merged, builder, color, scale, renderer)
-        return merged
-    }
-
-    private fun addMergedSegment(
-        output: MutableList<TextSegment>,
-        builder: StringBuilder,
-        color: Color,
-        scale: Float,
-        renderer: TextRenderer
-    ) {
-        if (builder.isEmpty()) return
-        val text = builder.toString()
-        builder.setLength(0)
-        output.add(TextSegment(text, color, renderer.getWidth(text, scale, font)))
-    }
-
-    private fun flushSegment(
-        output: MutableList<TextSegment>,
-        builder: StringBuilder,
-        color: Color,
-        scale: Float,
-        renderer: TextRenderer
-    ) {
-        if (builder.isEmpty()) return
-        val text = builder.toString()
-        builder.setLength(0)
-        output.add(TextSegment(text, color, renderer.getWidth(text, scale, font)))
+        })
+        return ComponentText.mergeRuns(spoofed, scale, renderer)
+            .map { TextSegment(it.text, it.color, it.width) }
     }
 
     private fun computeMaxLineWidth(): Float {
@@ -592,7 +449,7 @@ class TabListInstance(
 
         private fun isBlankLine(line: List<TextSegment>): Boolean {
             for (segment in line) {
-                if (segment.text.isNotBlank()) return false
+                if (!segment.text.isBlank()) return false
             }
             return true
         }
@@ -605,11 +462,6 @@ class TabListInstance(
 
         private fun centerTextY(renderer: TextRenderer, scale: Float, top: Float, height: Float): Float {
             return top + (height - renderer.getHeight(scale)) * 0.5f
-        }
-
-        private fun resolveStyleColor(style: Style, fallback: Color): Color {
-            val textColor = style.color
-            return if (textColor == null) fallback else Color(textColor.value)
         }
 
         private fun resolveTeamColor(team: PlayerTeam?): Color {
@@ -629,51 +481,6 @@ class TabListInstance(
                 INNER_PADDING - TEXT_SHADOW_OFFSET,
                 paddingY - TEXT_SHADOW_OFFSET
             )
-        }
-
-        private fun legacyColor(code: Char): Color? {
-            return when (code) {
-                '0' -> Color(0x000000)
-                '1' -> Color(0x0000aa)
-                '2' -> Color(0x00aa00)
-                '3' -> Color(0x00aaaa)
-                '4' -> Color(0xaa0000)
-                '5' -> Color(0xaa00aa)
-                '6' -> Color(0xffaa00)
-                '7' -> Color(0xaaaaaa)
-                '8' -> Color(0x555555)
-                '9' -> Color(0x5555ff)
-                'a' -> Color(0x55ff55)
-                'b' -> Color(0x55ffff)
-                'c' -> Color(0xff5555)
-                'd' -> Color(0xff55ff)
-                'e' -> Color(0xffff55)
-                'f' -> Color.WHITE
-                else -> null
-            }
-        }
-
-        private fun parseLegacyHexColor(text: String, sectionIndex: Int): Color? {
-            if (sectionIndex < 0 || sectionIndex + 13 >= text.length) return null
-            if (text[sectionIndex] != '\u00a7' || Character.toLowerCase(text[sectionIndex + 1]) != 'x') {
-                return null
-            }
-
-            val hex = CharArray(6)
-            var index = sectionIndex + 2
-            for (i in hex.indices) {
-                if (index + 1 >= text.length || text[index] != '\u00a7') return null
-                val digit = text[index + 1]
-                if (Character.digit(digit, 16) < 0) return null
-                hex[i] = digit
-                index += 2
-            }
-
-            return try {
-                Color(Integer.parseInt(String(hex), 16))
-            } catch (_: NumberFormatException) {
-                null
-            }
         }
 
     }
