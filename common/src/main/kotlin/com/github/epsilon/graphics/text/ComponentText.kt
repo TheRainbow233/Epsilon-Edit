@@ -21,7 +21,7 @@ object ComponentText {
         val raw = ArrayList<Run>(8)
         component.visit(
             { style: Style, text: String ->
-                val color = resolveStyleColor(style, fallback)
+                val color = styleColor(style, fallback)
                 parseLegacy(raw, text, color, color, scale, renderer)
                 Optional.empty<Any>()
             },
@@ -43,7 +43,7 @@ object ComponentText {
         lines.add(ArrayList())
         component.visit(
             { style: Style, text: String ->
-                val color = resolveStyleColor(style, fallback)
+                val color = styleColor(style, fallback)
                 parseLegacyIntoLines(lines, text, color, color, scale, renderer)
                 Optional.empty<Any>()
             },
@@ -59,10 +59,14 @@ object ComponentText {
         return result
     }
 
-    private fun resolveStyleColor(style: Style, fallback: Color): Color {
+    /** 解析组件样式颜色；无显式颜色时使用 fallback。 */
+    fun styleColor(style: Style, fallback: Color): Color {
         val textColor = style.color
         return if (textColor == null) fallback else Color(textColor.value)
     }
+
+    /** 按颜色合并相邻文本段并重新测量宽度。 */
+    fun mergeRuns(raw: List<Run>, scale: Float, renderer: TextRenderer): List<Run> = merge(raw, scale, renderer)
 
     private fun merge(raw: List<Run>, scale: Float, renderer: TextRenderer): List<Run> {
         if (raw.isEmpty()) return emptyList()
