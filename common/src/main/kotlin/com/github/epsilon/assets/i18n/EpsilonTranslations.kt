@@ -47,6 +47,8 @@ object EpsilonTranslations {
         Gui.ACCOUNTS_TOKEN_PLACEHOLDER,
         Gui.ACCOUNTS_WAITING_MICROSOFT,
         Gui.ACCOUNTS_MICROSOFT_ERROR,
+        Gui.ACCOUNTS_LOGIN_FAILED,
+        Gui.ACCOUNTS_ADD_FAILED,
         Gui.ACCOUNTS_SEARCH_PLACEHOLDER,
         Gui.ACCOUNTS_SEARCH_EMPTY,
         Gui.ACCOUNTS_SORT_ADDED,
@@ -258,6 +260,8 @@ object EpsilonTranslations {
         val ACCOUNTS_TOKEN_PLACEHOLDER: TranslateComponent = create("gui", "accounts.token.placeholder")
         val ACCOUNTS_WAITING_MICROSOFT: TranslateComponent = create("gui", "accounts.waiting.microsoft")
         val ACCOUNTS_MICROSOFT_ERROR: TranslateComponent = create("gui", "accounts.microsoft.error")
+        val ACCOUNTS_LOGIN_FAILED: TranslateComponent = create("gui", "accounts.login_failed")
+        val ACCOUNTS_ADD_FAILED: TranslateComponent = create("gui", "accounts.add_failed")
         val ACCOUNTS_SEARCH_PLACEHOLDER: TranslateComponent = create("gui", "accounts.search.placeholder")
         val ACCOUNTS_SEARCH_EMPTY: TranslateComponent = create("gui", "accounts.search.empty")
         val ACCOUNTS_SORT_ADDED: TranslateComponent = create("gui", "accounts.sort.added")

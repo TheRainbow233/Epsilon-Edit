@@ -7,7 +7,9 @@ import com.github.epsilon.accounts.types.CrackedAccount
 import com.github.epsilon.accounts.types.MicrosoftAccount
 import com.github.epsilon.accounts.types.SessionAccount
 import com.github.epsilon.accounts.types.TheAlteningAccount
+import com.github.epsilon.Constants
 import com.github.epsilon.assets.i18n.EpsilonTranslations
+import com.github.epsilon.assets.i18n.TranslateComponent
 import com.github.epsilon.graphics.LuminRenderSystem
 import com.github.epsilon.graphics.renderers.TextRenderer
 import com.github.epsilon.graphics.text.IconChars
@@ -26,6 +28,7 @@ import com.github.epsilon.gui.theme.MD3Theme
 import com.github.epsilon.kernel.MinecraftWrapper.mc
 import com.github.epsilon.managers.AccountManager
 import com.github.epsilon.managers.ExecutorManager
+import com.github.epsilon.managers.NotificationManager
 import com.mojang.blaze3d.platform.InputConstants
 import net.minecraft.client.gui.GuiGraphicsExtractor
 import net.minecraft.client.gui.components.IMEPreeditOverlay
@@ -37,6 +40,11 @@ import net.minecraft.client.input.PreeditEvent
 import net.minecraft.network.chat.Component
 import java.awt.Color
 import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * 会话令牌是 JWT，通常 1–3k 字符；上限必须足够大，否则粘贴时会被静默截断。
+ */
+private const val TOKEN_MAX_LENGTH = 8192
 
 object AccountsScreen : Screen(Component.literal("Accounts")) {
 
@@ -676,12 +684,29 @@ object AccountsScreen : Screen(Component.literal("Accounts")) {
 
         ExecutorManager.execute {
             try {
-                if (account.fetchInfo() && account.login() && account.type != AccountType.Cracked) {
+                if (!account.fetchInfo() || !account.login()) {
+                    notifyAccountFailure(EpsilonTranslations.Gui.ACCOUNTS_LOGIN_FAILED)
+                    return@execute
+                }
+                if (account.type != AccountType.Cracked) {
                     account.cache.loadHead()
                 }
+            } catch (e: Exception) {
+                Constants.LOGGER.error("登录账号 ${account.username} 失败", e)
+                notifyAccountFailure(EpsilonTranslations.Gui.ACCOUNTS_LOGIN_FAILED)
             } finally {
                 authenticating.set(null)
             }
+        }
+    }
+
+    /** 账号操作失败时在主线程弹出可见提示，避免异步异常被静默吞掉。 */
+    private fun notifyAccountFailure(message: TranslateComponent) {
+        mc.execute {
+            NotificationManager.error(
+                EpsilonTranslations.Gui.ACCOUNTS_TITLE.getTranslatedName(),
+                message.getTranslatedName(),
+            )
         }
     }
 
@@ -689,7 +714,7 @@ object AccountsScreen : Screen(Component.literal("Accounts")) {
         searchField.blur()
         addMode = mode
         field.clear()
-        field.setMaxLength(if (mode == AddMode.CRACKED) 16 else 512)
+        field.setMaxLength(if (mode == AddMode.CRACKED) 16 else TOKEN_MAX_LENGTH)
         field.focus()
     }
 
@@ -718,6 +743,13 @@ object AccountsScreen : Screen(Component.literal("Accounts")) {
         val input = field.getText().trim()
         if (input.isBlank()) return
 
+        if (addMode == AddMode.SESSION) {
+            Constants.LOGGER.info("添加会话账号：令牌长度 {}", input.length)
+            if (input.length >= TOKEN_MAX_LENGTH) {
+                Constants.LOGGER.warn("会话令牌达到输入上限 {}，可能已被截断", TOKEN_MAX_LENGTH)
+            }
+        }
+
         val account: Account<*>? = when (addMode) {
             AddMode.CRACKED -> CrackedAccount(input)
             AddMode.ALTENING -> TheAlteningAccount(input)
@@ -735,9 +767,17 @@ object AccountsScreen : Screen(Component.literal("Accounts")) {
 
         ExecutorManager.execute {
             try {
-                if (!account.fetchInfo()) return@execute
+                if (!account.fetchInfo()) {
+                    notifyAccountFailure(EpsilonTranslations.Gui.ACCOUNTS_ADD_FAILED)
+                    return@execute
+                }
                 AccountManager.add(account)
-                if (account.type != AccountType.Cracked) account.cache.loadHead()
+                if (account.type != AccountType.Cracked) {
+                    account.cache.loadHead()
+                }
+            } catch (e: Exception) {
+                Constants.LOGGER.error("添加账号 ${account.username} 失败", e)
+                notifyAccountFailure(EpsilonTranslations.Gui.ACCOUNTS_ADD_FAILED)
             } finally {
                 authenticating.set(null)
             }

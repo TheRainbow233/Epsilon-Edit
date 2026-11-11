@@ -32,6 +32,11 @@ object Http {
 
     private val GSON = Gson()
 
+    /** 保留状态码与响应体的请求结果，供需要区分 401/403 等错误的调用方使用。 */
+    data class ResponseResult(val statusCode: Int, val body: String)
+
+    fun <T> fromJson(body: String, type: Type): T? = GSON.fromJson(body, type)
+
     /**
      * 流式下载进度回调。
      */
@@ -177,6 +182,18 @@ object Http {
                 exceptionHandler.accept(e)
                 return null
             }
+        }
+
+        /**
+         * 发送请求并保留状态码与响应体；网络异常直接抛出，由调用方记录上下文。
+         */
+        fun sendForResult(): ResponseResult {
+            builder.header("Accept", "application/json")
+            if (!hasBody) {
+                builder.method("GET", HttpRequest.BodyPublishers.noBody())
+            }
+            val response = CLIENT.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+            return ResponseResult(response.statusCode(), response.body())
         }
 
         fun sendInputStream(): InputStream? {
