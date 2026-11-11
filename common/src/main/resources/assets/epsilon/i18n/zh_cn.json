@@ -587,7 +587,8 @@
           "inferno": "烈焰烟云",
           "planet": "行星",
           "black_hole": "黑洞",
-          "minecraft": "Minecraft"
+          "minecraft": "Minecraft",
+          "sirenian_dawn": "海妖黎明"
         },
         "show welcome screen": "启动时显示欢迎页",
         "show reisa in dropdown": "在瀑布式界面显示玲纱",
@@ -2340,6 +2341,7 @@
         "show equipment": "显示装备",
         "outline": "描边",
         "name color": "名称颜色",
+        "use mc name color": "使用 MC 名称颜色",
         "friend color": "好友颜色",
         "team color": "队伍颜色",
         "health color": "生命文字颜色",

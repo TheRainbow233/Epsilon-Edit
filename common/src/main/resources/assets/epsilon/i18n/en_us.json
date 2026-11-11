@@ -587,7 +587,8 @@
           "inferno": "Inferno",
           "planet": "Planet",
           "black_hole": "Black Hole",
-          "minecraft": "Minecraft"
+          "minecraft": "Minecraft",
+          "sirenian_dawn": "Sirenian Dawn"
         },
         "show welcome screen": "Show Welcome Screen",
         "show reisa in dropdown": "Show Reisa In Dropdown",
@@ -2340,6 +2341,7 @@
         "show equipment": "Show Equipment",
         "outline": "Outline",
         "name color": "Name Color",
+        "use mc name color": "Use MC Name Color",
         "friend color": "Friend Color",
         "team color": "Team Color",
         "health color": "Health Color",

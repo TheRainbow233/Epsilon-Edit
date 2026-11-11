@@ -34,6 +34,8 @@ object GlslSandBox : AutoCloseable {
 
     val MINECRAFT: Identifier = ResourceLocationUtils.getIdentifier("menu/minecraft")
 
+    val SIRENIAN_DAWN: Identifier = ResourceLocationUtils.getIdentifier("menu/sirenian_dawn")
+
     private val SANDBOX_INFO_SIZE: Int = Std140SizeCalculator()
         .putVec4()
         .putVec4()

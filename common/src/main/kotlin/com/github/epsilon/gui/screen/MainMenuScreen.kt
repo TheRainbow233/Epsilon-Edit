@@ -46,6 +46,7 @@ object MainMenuScreen : Screen(Component.literal("MainMenuScreen")) {
         PLANET,
         BLACK_HOLE,
         MINECRAFT,
+        SIRENIAN_DAWN,
     }
 
     private const val MENU_REFERENCE_WIDTH = 1600.0f
@@ -343,6 +344,7 @@ object MainMenuScreen : Screen(Component.literal("MainMenuScreen")) {
                 Background.PLANET -> GlslSandBox.PLANET
                 Background.BLACK_HOLE -> GlslSandBox.BLACK_HOLE
                 Background.MINECRAFT -> GlslSandBox.MINECRAFT
+                Background.SIRENIAN_DAWN -> GlslSandBox.SIRENIAN_DAWN
             }
 
             GlslSandBox.render(

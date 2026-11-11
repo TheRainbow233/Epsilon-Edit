@@ -6,6 +6,7 @@ import com.github.epsilon.graphics.LuminRenderSystem
 import com.github.epsilon.graphics.renderers.TextRenderer
 import com.github.epsilon.graphics.schedulers.render2d.Render2DScheduler
 import com.github.epsilon.graphics.shaders.BlurShader
+import com.github.epsilon.graphics.text.ComponentText
 import com.github.epsilon.graphics.text.IconChars
 import com.github.epsilon.graphics.text.StaticFontLoader
 import com.github.epsilon.kernel.jvm.NonNullContext
@@ -39,6 +40,7 @@ object NameTags : Module("Name Tags", Category.RENDER) {
     private val showEquipment by boolSetting("Show Equipment", true)
     private val outline by boolSetting("Outline", true)
     private val nameColor by colorSetting("Name Color", Color(247, 249, 252, 245))
+    private val useMcNameColor by boolSetting("Use MC Name Color", false)
     private val friendColor by colorSetting(
         "Friend Color", Color(105, 229, 166, 245),
         true,
@@ -167,7 +169,13 @@ object NameTags : Module("Name Tags", Category.RENDER) {
         if (teamStatus && TargetManager.isSameTeam(player)) {
             contents.add(Segment(IconChars.GROUPS, "Team", true, teamColor, teamColor))
         }
-        contents.add(Segment(null, player.name.string, true, nameColor, nameColor))
+        if (useMcNameColor) {
+            // 保留团队色、§ 色码与组件样式，按颜色分段绘制
+            val runs = ComponentText.runs(player.displayName, nameColor, renderScale, metrics)
+            contents.add(Segment(null, player.name.string, true, nameColor, nameColor, runs))
+        } else {
+            contents.add(Segment(null, player.name.string, true, nameColor, nameColor))
+        }
         if (showHealth) {
             contents.add(
                 Segment(
@@ -181,7 +189,8 @@ object NameTags : Module("Name Tags", Category.RENDER) {
         var totalWidth = 0.0f
         var tagHeight = 0.0f
         for (content in contents) {
-            val textWidth = metrics.getWidth(content.text, renderScale)
+            val textWidth = content.runs?.sumOf { it.width.toDouble() }?.toFloat()
+                ?: metrics.getWidth(content.text, renderScale)
             val textHeight = metrics.getHeight(renderScale)
             val iconWidth =
                 if (content.icon == null) 0.0f else metrics.getWidth(content.icon, renderScale, StaticFontLoader.ICONS)
@@ -293,8 +302,16 @@ object NameTags : Module("Name Tags", Category.RENDER) {
             cursorX += segment.iconWidth + segment.iconGap
         }
 
-        layer.addText(content.text, cursorX, textY, renderScale, content.textColor)
-        cursorX += segment.textWidth
+        val runs = content.runs
+        if (runs != null) {
+            for (run in runs) {
+                layer.addText(run.text, cursorX, textY, renderScale, run.color)
+                cursorX += run.width
+            }
+        } else {
+            layer.addText(content.text, cursorX, textY, renderScale, content.textColor)
+            cursorX += segment.textWidth
+        }
 
         if (content.icon != null && !content.iconFirst) {
             layer.addText(
@@ -378,6 +395,7 @@ object NameTags : Module("Name Tags", Category.RENDER) {
         val iconFirst: Boolean,
         val iconColor: Color,
         val textColor: Color,
+        val runs: List<ComponentText.Run>? = null,
     )
 
     private data class MeasuredSegment(
