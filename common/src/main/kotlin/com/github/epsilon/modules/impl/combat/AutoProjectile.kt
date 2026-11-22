@@ -2,17 +2,17 @@ package com.github.epsilon.modules.impl.combat
 
 import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.PlayerTickEvent
+import com.github.epsilon.kernel.gameplay.player.SwingMode
+import com.github.epsilon.kernel.gameplay.rotation.Rotation
+import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
 import com.github.epsilon.kernel.jvm.NonNullContext
+import com.github.epsilon.kernel.render.TrajectorySimulator
+import com.github.epsilon.kernel.render.TrajectorySimulator.TrajectoryDescriptor
 import com.github.epsilon.managers.RotationManager
 import com.github.epsilon.managers.target.TargetManager
 import com.github.epsilon.managers.target.TargetRequest
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
-import com.github.epsilon.utils.player.SwingMode
-import com.github.epsilon.utils.render.TrajectorySimulator
-import com.github.epsilon.utils.render.TrajectorySimulator.TrajectoryDescriptor
-import com.github.epsilon.utils.rotation.Priority
-import com.github.epsilon.utils.rotation.Rotation
 import kotlin.math.abs
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.LivingEntity
@@ -97,7 +97,7 @@ object AutoProjectile : Module("Auto Projectile", Category.COMBAT) {
             if (angleDiff > maxAngle.toFloat()) return@safeEventHandler
 
             if (silentRotate) {
-                RotationManager.setRotations(bestAngle, 10.0, Priority.High)
+                RotationManager.setRotations(bestAngle, 10.0, RotationPriority.High)
             }
 
             gameMode.useItem(player, InteractionHand.MAIN_HAND)

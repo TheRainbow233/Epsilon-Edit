@@ -1,5 +1,6 @@
 package com.github.epsilon.managers.network
 
+import com.github.epsilon.Constants
 import com.github.epsilon.assets.i18n.EpsilonTranslations
 import com.github.epsilon.events.api.AlwaysListening
 import com.github.epsilon.events.api.Cancellable
@@ -13,26 +14,41 @@ import com.github.epsilon.events.impl.LevelUpdateEvent
 import com.github.epsilon.events.impl.PacketEvent
 import com.github.epsilon.events.impl.PlayerTickEvent
 import com.github.epsilon.kernel.MinecraftWrapper.mc
+import com.github.epsilon.kernel.network.NetworkUtils
 import com.github.epsilon.managers.NotificationManager
-import com.github.epsilon.utils.network.NetworkUtils
 import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.common.ClientboundDisconnectPacket
 import net.minecraft.network.protocol.game.ClientGamePacketListener
+import net.minecraft.network.protocol.game.ClientboundLoginPacket
+import net.minecraft.network.protocol.game.ClientboundPlayerChatPacket
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket
+import net.minecraft.network.protocol.game.ClientboundRespawnPacket
+import net.minecraft.network.protocol.game.ClientboundSetHealthPacket
+import net.minecraft.network.protocol.game.ClientboundSoundPacket
+import net.minecraft.network.protocol.game.ClientboundSystemChatPacket
 import net.minecraft.network.protocol.game.ServerboundChatCommandPacket
 import net.minecraft.network.protocol.game.ServerboundChatPacket
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
 import net.minecraft.network.protocol.handshake.ClientIntentionPacket
 import net.minecraft.network.protocol.login.ServerboundHelloPacket
+import net.minecraft.network.protocol.ping.ServerboundPingRequestPacket
+import net.minecraft.network.protocol.status.ServerboundStatusRequestPacket
+import net.minecraft.sounds.SoundEvents
 import net.minecraft.world.phys.Vec3
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.function.Consumer
 
 /**
- * 集中式数据包延迟基础设施（等价于 LiquidBounce 的 BlinkManager）。
+ * 集中式数据包延迟基础设施。
  *
  * 在 [PacketEvent] 的 `LOWEST` 优先级发布 [BlinkPacketEvent] 让模块投票：
  * - [Action.QUEUE]：取消原事件并把数据包放入共享队列
  * - [Action.PASS]：放行当前包但保留队列
  * - [Action.FLUSH]：清空该方向队列后放行
+ *
+ * 除了模块投票，本类还持有协议层的硬性规则，任何模块都无法延迟：
+ * 握手 / 状态查询、聊天与命令、传送、重生、登录、断连、死亡与自身受伤音效。
+ * 其中传送 / 重生 / 登录 / 断连 / 死亡会先回放对应方向的队列，避免旧位置的包落到新世界或死亡之后。
  *
  * 入站与出站使用各自的方向标记，回放时按方向分流；模块只读取 [packetQueue] 做位置追踪，
  * 不得直接增删队列元素。
@@ -52,7 +68,12 @@ object ServerboundPacketManager : AlwaysListening {
             process(event.packet, TransferOrigin.INCOMING, event)
         }
         handler<PlayerTickEvent.Pre>(alwaysListening = true) {
-            heartbeat()
+            // 心跳负责兜底回放：任何异常都不能让事件总线退订它，否则队列会永久滞留。
+            try {
+                heartbeat()
+            } catch (e: Exception) {
+                Constants.LOGGER.error("ServerboundPacketManager 心跳执行失败", e)
+            }
         }
         handler<LevelUpdateEvent>(alwaysListening = true) {
             flush(TransferOrigin.OUTGOING)
@@ -68,18 +89,47 @@ object ServerboundPacketManager : AlwaysListening {
     // -- 投票入口 --
 
     private fun process(packet: Packet<*>, origin: TransferOrigin, event: Cancellable) {
-        // 握手 / 登录 / 聊天一律不延迟
-        if (packet is ClientIntentionPacket || packet is ServerboundHelloPacket) return
-        if (packet is ServerboundChatPacket || packet is ServerboundChatCommandPacket) return
+        val voteEvent = BlinkPacketEvent(packet, origin)
+        voteEvent.post()
+        when (voteEvent.action) {
+            Action.FLUSH -> {
+                flush(origin)
+                return
+            }
 
-        when (BlinkPacketEvent(packet, origin).post().action) {
-            Action.FLUSH -> flush(origin)
-            Action.PASS -> Unit
-            Action.QUEUE -> {
-                event.cancel()
-                packetQueue.add(PacketSnapshot(packet, origin, System.currentTimeMillis()))
+            Action.PASS -> return
+            Action.QUEUE -> Unit
+        }
+
+        // 以下数据包不参与延迟。
+        when {
+            // 握手 / 登录 / 状态查询：连接建立阶段不能压包
+            packet is ClientIntentionPacket || packet is ServerboundHelloPacket ||
+                    packet is ServerboundStatusRequestPacket || packet is ServerboundPingRequestPacket -> return
+
+            // 聊天与命令必须即时送达
+            packet is ServerboundChatPacket || packet is ServerboundChatCommandPacket ||
+                    packet is ClientboundSystemChatPacket || packet is ClientboundPlayerChatPacket -> return
+
+            // 传送 / 重生 / 登录 / 断连：先回放该方向，再让包通过，避免旧队列落到新世界
+            packet is ClientboundPlayerPositionPacket || packet is ClientboundRespawnPacket ||
+                    packet is ClientboundLoginPacket || packet is ClientboundDisconnectPacket -> {
+                flush(origin)
+                return
+            }
+
+            // 自身受伤音效只影响声音，直接放行
+            packet is ClientboundSoundPacket && packet.sound.value() === SoundEvents.PLAYER_HURT -> return
+
+            // 死亡：回放该方向后放行，避免死后仍发送旧位置
+            packet is ClientboundSetHealthPacket && packet.health <= 0.0f -> {
+                flush(origin)
+                return
             }
         }
+
+        event.cancel()
+        packetQueue.add(PacketSnapshot(packet, origin, System.currentTimeMillis()))
     }
 
     /** 周期心跳：分别发布空包事件，只有默认 FLUSH 才清空对应方向。 */
@@ -89,10 +139,14 @@ object ServerboundPacketManager : AlwaysListening {
             packetQueue.clear()
             return
         }
-        if (BlinkPacketEvent(null, TransferOrigin.OUTGOING).post().action == Action.FLUSH) {
+        val outgoingVote = BlinkPacketEvent(null, TransferOrigin.OUTGOING)
+        outgoingVote.post()
+        if (outgoingVote.action == Action.FLUSH) {
             flush(TransferOrigin.OUTGOING)
         }
-        if (BlinkPacketEvent(null, TransferOrigin.INCOMING).post().action == Action.FLUSH) {
+        val incomingVote = BlinkPacketEvent(null, TransferOrigin.INCOMING)
+        incomingVote.post()
+        if (incomingVote.action == Action.FLUSH) {
             flush(TransferOrigin.INCOMING)
         }
     }
@@ -191,7 +245,13 @@ object ServerboundPacketManager : AlwaysListening {
 
     private fun sendSnapshot(snapshot: PacketSnapshot) {
         if (snapshot.origin == TransferOrigin.OUTGOING) {
-            NetworkUtils.sendPacketNoEvent(snapshot.packet)
+            try {
+                NetworkUtils.sendPacketNoEvent(snapshot.packet)
+            } catch (e: Exception) {
+                // sendPacketNoEvent 先登记 bypass 再发送，失败时要回收，避免集合无限增长。
+                NetworkUtils.bypassedPackets.remove(snapshot.packet)
+                reportFailure("Outbound", e)
+            }
             return
         }
 
@@ -201,11 +261,16 @@ object ServerboundPacketManager : AlwaysListening {
             @Suppress("UNCHECKED_CAST")
             (snapshot.packet as Packet<ClientGamePacketListener>).handle(connection)
         } catch (e: Exception) {
-            NotificationManager.error(
-                "Inbound Packet",
-                EpsilonTranslations.Notifications.SERVERBOUND_PACKET_FLUSH_FAILED.getTranslatedName() + ": " + e.message
-            )
+            reportFailure("Inbound", e)
         }
+    }
+
+    private fun reportFailure(direction: String, exception: Exception) {
+        Constants.LOGGER.error("ServerboundPacketManager 回放 {} 数据包失败", direction, exception)
+        NotificationManager.error(
+            "$direction Packet",
+            EpsilonTranslations.Notifications.SERVERBOUND_PACKET_FLUSH_FAILED.getTranslatedName() + ": " + exception.message
+        )
     }
 
     data class PacketSnapshot(

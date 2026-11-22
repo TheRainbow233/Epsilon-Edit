@@ -66,6 +66,20 @@ object Velocity : Module("Velocity", Category.MOVEMENT) {
         }
     }
 
+    /**
+     * Reduce 模式的入站队列是否正在压包：此时 Backtrack 不得再接管入站延迟。
+     */
+    fun ownsIncomingDelayQueue(): Boolean {
+        return isEnabled && mode == Mode.Reduce && delay
+    }
+
+    /**
+     * 是否应当阻止 Backtrack 生效：压包中，或刚结束压包仍有攻击补偿排队。
+     */
+    fun blocksBacktrack(): Boolean {
+        return isEnabled && mode == Mode.Reduce && (delay || attackQueue > 0)
+    }
+
     init {
         onDisable {
             delay = false

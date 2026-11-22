@@ -1,8 +1,8 @@
 package com.github.epsilon.mixins;
 
 import com.github.epsilon.events.impl.PacketEvent;
-import com.github.epsilon.utils.network.ClientIdentityHider;
-import com.github.epsilon.utils.network.NetworkUtils;
+import com.github.epsilon.kernel.network.ClientIdentityHider;
+import com.github.epsilon.kernel.network.NetworkUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import io.netty.channel.ChannelFutureListener;
@@ -26,7 +26,8 @@ public class MixinConnection {
         if (packet instanceof ClientboundBundlePacket bundle) {
             List<Packet<? super ClientGamePacketListener>> packets = new ArrayList<>();
             for (Packet<? super ClientGamePacketListener> subPacket : bundle.subPackets()) {
-                PacketEvent.Receive event = new PacketEvent.Receive(subPacket).post();
+                PacketEvent.Receive event = new PacketEvent.Receive(subPacket);
+                event.post();
                 if (!event.isCancelled()) {
                     packets.add((Packet<? super ClientGamePacketListener>) event.getPacket());
                 }
@@ -34,7 +35,8 @@ public class MixinConnection {
             original.call(new ClientboundBundlePacket(packets), listener);
             return;
         }
-        PacketEvent.Receive event = new PacketEvent.Receive(packet).post();
+        PacketEvent.Receive event = new PacketEvent.Receive(packet);
+        event.post();
         if (!event.isCancelled()) {
             original.call(event.getPacket(), listener);
         }
@@ -49,7 +51,8 @@ public class MixinConnection {
                 original.call(instance, filteredPacket, listener, flush);
             }
         } else {
-            PacketEvent.Send event = new PacketEvent.Send(packet).post();
+            PacketEvent.Send event = new PacketEvent.Send(packet);
+            event.post();
             if (!event.isCancelled()) {
                 Packet<?> filteredPacket = ClientIdentityHider.INSTANCE.filterServerboundPacket(event.getPacket());
                 if (filteredPacket != null) {

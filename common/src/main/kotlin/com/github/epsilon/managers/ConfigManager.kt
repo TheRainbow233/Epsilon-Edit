@@ -562,8 +562,9 @@ object ConfigManager {
                 setting is IntSetting -> setting.setUnboundedValue(value.asInt)
                 setting is DoubleSetting -> setting.setUnboundedValue(value.asDouble)
                 setting is StringSetting -> setting.value = value.asString
-                setting === ClientSetting.guiMode && setting is EnumSetting<*> ->
-                    (setting as EnumSetting<*>).setModeSilently(value.asString)
+                // GUI 模式在加载时静默写入，避免触发界面重建回调。
+                setting === ClientSetting.guiModeSetting ->
+                    ClientSetting.guiModeSetting.setModeSilently(value.asString)
 
                 // 旧版可能把多选写成单个字符串，按一项解析。
                 setting is MultiEnumSetting<*> -> setting.setValueFromNames(listOf(value.asString))

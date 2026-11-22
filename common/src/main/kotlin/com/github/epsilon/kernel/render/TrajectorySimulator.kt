@@ -1,4 +1,4 @@
-package com.github.epsilon.utils.render
+package com.github.epsilon.kernel.render
 
 import com.github.epsilon.graphics.schedulers.render3d.Render3DScheduler
 import com.github.epsilon.kernel.MinecraftWrapper.mc

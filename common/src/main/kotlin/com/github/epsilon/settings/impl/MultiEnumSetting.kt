@@ -18,7 +18,7 @@ class MultiEnumSetting<E : Enum<E>>(
     defaultValue: Collection<E>,
     visible: Visibility?,
     onChanged: ((Set<E>) -> Unit)?,
-) : Setting<Set<E>>(name, visible, onChanged) {
+) : Setting<Set<E>>(name, emptySet(), visible, onChanged) {
 
     private val modeTranslations: MutableMap<E, TranslateComponent> = HashMap()
 

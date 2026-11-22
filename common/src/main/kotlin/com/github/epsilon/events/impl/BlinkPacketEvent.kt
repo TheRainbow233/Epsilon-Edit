@@ -18,7 +18,7 @@ class BlinkPacketEvent(
     val packet: Packet<*>?,
     /** 数据包方向：入站或出站。 */
     val origin: TransferOrigin,
-) : IEvent<BlinkPacketEvent>, IPosting by Companion {
+) : IEvent, IPosting by Companion {
 
     var action: Action = Action.FLUSH
         private set

@@ -2,6 +2,13 @@ package com.github.epsilon.modules.impl.combat
 
 import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.PlayerTickEvent
+import com.github.epsilon.kernel.gameplay.inventory.InvUtils.findInHotbar
+import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swap
+import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swapBack
+import com.github.epsilon.kernel.gameplay.player.SwingMode
+import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
+import com.github.epsilon.kernel.gameplay.rotation.RotationUtils.getEyeDistanceToEntity
+import com.github.epsilon.kernel.gameplay.rotation.RotationUtils.getRotationsToEntity
 import com.github.epsilon.kernel.jvm.NonNullContext
 import com.github.epsilon.kernel.jvm.runSafe
 import com.github.epsilon.managers.RotationManager
@@ -9,13 +16,6 @@ import com.github.epsilon.managers.target.TargetManager
 import com.github.epsilon.managers.target.TargetRequest
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
-import com.github.epsilon.utils.player.InvUtils.findInHotbar
-import com.github.epsilon.utils.player.InvUtils.swap
-import com.github.epsilon.utils.player.InvUtils.swapBack
-import com.github.epsilon.utils.player.SwingMode
-import com.github.epsilon.utils.rotation.Priority
-import com.github.epsilon.utils.rotation.RotationUtils.getEyeDistanceToEntity
-import com.github.epsilon.utils.rotation.RotationUtils.getRotationsToEntity
 import java.util.Random
 import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.LivingEntity
@@ -111,7 +111,7 @@ object AutoRod : Module("Auto Rod", Category.COMBAT) {
             return
         }
 
-        RotationManager.setRotations(getRotationsToEntity(current), 10.0, Priority.High)
+        RotationManager.setRotations(getRotationsToEntity(current), 10.0, RotationPriority.High)
 
         val rod = findInHotbar { it.item is FishingRodItem }
         if (!rod.found()) {

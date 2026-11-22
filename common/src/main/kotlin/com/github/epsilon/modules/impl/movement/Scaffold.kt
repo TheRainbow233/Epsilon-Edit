@@ -137,6 +137,8 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
     private val swapMode by enumSetting("Swap Mode", SwapMode.Normal)
     private val swapBack by boolSetting("Swap Back", true, { swapMode == SwapMode.Normal })
     private val snap by boolSetting("Snap", false, { mode == Mode.GodBridge && rotationMode != RotationMode.Packet })
+    // 仅 GodBridge 生效：成功放置后等待 N tick 再放下一个方块。
+    private val placeDelay by intSetting("Place Delay", 0, 0..10, 1, { mode == Mode.GodBridge })
     private val degrees45 by boolSetting("45 Degrees", false, { rotationMode != RotationMode.Packet })
     private val rotationMode by enumSetting("Rotation Mode", RotationMode.Static)
     private val raytrace by enumSetting("Raytrace Mode", RaytraceMode.Normal, { rotationMode != RotationMode.Packet })
@@ -182,6 +184,9 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
     private var emergencyPlacementActive = false
     private var pearlUsePacketSent = false
 
+    /** GodBridge 的放置冷却（tick）；其他模式不读取。 */
+    private var placeCooldown = 0
+
     private val renderBoxes: MutableList<RenderInfo> = ArrayList()
 
     init {
@@ -195,12 +200,14 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             shouldSwapBack = false
             emergencyPlacementActive = false
             pearlUsePacketSent = false
+            placeCooldown = 0
         }
 
         onDisable {
             yLevel = 0
             emergencyPlacementActive = false
             pearlUsePacketSent = false
+            placeCooldown = 0
             if (shouldSwapBack) {
                 runSafe { restoreHotbarSlot() }
                 shouldSwapBack = false
@@ -254,6 +261,7 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
         }
 
         safeEventHandler<PlayerTickEvent.Pre> { event ->
+            if (placeCooldown > 0) placeCooldown--
             if (!event.isCancelled) emergencyPlacementActive = false
 
             blockResult = findBlockResult()
@@ -441,6 +449,8 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             if (!onAir() || blockPos == null || direction == null || !canUseBlockResult()) {
                 return@runSafe
             }
+            // GodBridge 的放置间隔；紧急自救走独立路径，不受这里限制。
+            if (mode == Mode.GodBridge && placeCooldown > 0) return@runSafe
             val pos = blockPos ?: return@runSafe
             val face = direction ?: return@runSafe
 
@@ -452,11 +462,13 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
                 if (skip) return@runSafe
             }
 
-            placeBlock(pos, face)
+            if (placeBlock(pos, face) && mode == Mode.GodBridge) {
+                placeCooldown = placeDelay
+            }
         }
     }
 
-    private fun NonNullContext.placeBlock(pos: BlockPos, face: Direction) {
+    private fun NonNullContext.placeBlock(pos: BlockPos, face: Direction): Boolean {
         swap()
 
         val hand = blockResult.getHand()
@@ -468,7 +480,8 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             gameMode.useItemOn(player, hand, hit)
         }
 
-        if (result.consumesAction()) {
+        val success = result.consumesAction()
+        if (success) {
             SwingMode.of(swingHand).interactSwing(hand)
 
             if (render) {
@@ -486,6 +499,7 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
         }
 
         swapBack()
+        return success
     }
 
     private fun getYLevel(): Int = runSafeOrElse(0) {

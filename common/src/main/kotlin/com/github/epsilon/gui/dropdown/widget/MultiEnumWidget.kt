@@ -5,13 +5,13 @@ import com.github.epsilon.gui.dropdown.DropdownTheme
 import com.github.epsilon.gui.dropdown.ReisaDropdownCompanion
 import com.github.epsilon.gui.lib.*
 import com.github.epsilon.gui.theme.MD3Theme
+import com.github.epsilon.kernel.render.animation.Easing
 import com.github.epsilon.kernel.state.getValue
 import com.github.epsilon.kernel.state.mutableStateOf
 import com.github.epsilon.kernel.state.setValue
 import com.github.epsilon.managers.sound.SoundKey
 import com.github.epsilon.managers.sound.SoundManager
 import com.github.epsilon.settings.impl.MultiEnumSetting
-import com.github.epsilon.utils.render.animation.Easing
 import com.mojang.blaze3d.platform.InputConstants
 import com.github.epsilon.gui.lib.state.LuminAnimatable as Animation
 

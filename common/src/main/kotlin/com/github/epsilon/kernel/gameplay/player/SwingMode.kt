@@ -43,8 +43,15 @@ enum class SwingMode {
 
     companion object {
 
+        /**
+         * 由“是否播放本地挥手动画”的布尔设置推导模式。
+         *
+         * 服务端挥手包不能省：1.9+ 的攻击包顺序是“攻击 → 挥手（PUNCH）”，
+         * 每次攻击后缺少挥手包会被 Grim 的 PacketOrderB 判为 `pre-attack`。
+         * `player.swing(..., false)` 只播本地动画、不发送网络包，所以这里不能返回 [Client]。
+         */
         @JvmStatic
-        fun of(client: Boolean): SwingMode = if (client) Client else Packet
+        fun of(client: Boolean): SwingMode = if (client) Both else Packet
 
     }
 

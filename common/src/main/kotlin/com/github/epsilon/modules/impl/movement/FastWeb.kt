@@ -2,10 +2,10 @@ package com.github.epsilon.modules.impl.movement
 
 import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.SendPositionEvent
+import com.github.epsilon.kernel.gameplay.movement.MovementUtils.forward
+import com.github.epsilon.kernel.gameplay.player.PlayerState.isInWeb
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
-import com.github.epsilon.utils.player.MoveUtils.forward
-import com.github.epsilon.utils.player.PlayerUtils.isInWeb
 import net.minecraft.world.phys.Vec3
 
 /**
