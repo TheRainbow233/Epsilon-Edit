@@ -1590,6 +1590,17 @@
           "fishingrod": "钓鱼竿",
           "block": "方块"
         },
+        "anti void": {
+          "_value": "反虚空",
+          "mode": {
+            "_value": "模式",
+            "blink": "Blink",
+            "callback": "Callback"
+          },
+          "void level": "虚空高度",
+          "predict ticks": "预测刻数",
+          "pullback time": "回传延迟"
+        },
         "auto armor": "自动穿甲",
         "switch sword": "切换剑",
         "sword slot": "剑槽位",
@@ -1641,7 +1652,8 @@
         "mode": {
           "_value": "模式",
           "groundspoof": "地面欺骗",
-          "grimjump": "Grim 跳跃"
+          "grimjump": "Grim 跳跃",
+          "nogrounda": "NoGround A"
         },
         "fall distance": "摔落距离"
       },
@@ -1665,7 +1677,8 @@
         "max delay": "最大延迟",
         "auto close": "自动关闭",
         "close delay": "关闭延迟",
-        "ender chest": "末影箱"
+        "ender chest": "末影箱",
+        "take all": "全部拿走"
       },
       "timer": {
         "_value": "变速",
@@ -1705,8 +1718,17 @@
       },
       "dolphin": "海豚",
       "auto sprint": "自动疾跑",
+      "bhop": {
+        "_value": "连跳",
+        "speed": "速度",
+        "offset": "偏移",
+        "strafe decay": "Strafe 衰减",
+        "auto jump": "自动跳跃",
+        "disable while sneaking": "潜行时禁用"
+      },
       "blink": {
         "_value": "闪现",
+        "auto release": "自动释放",
         "tick": "闪现刻数",
         "slow release": "慢释放",
         "slow move": "慢移动",
@@ -1749,6 +1771,7 @@
       "flight": {
         "_value": "飞行",
         "stop on disable": "关闭时重置加速度",
+        "bypass vanilla check": "绕过原版检测",
         "horizontal speed": "水平速度",
         "vertical speed": "垂直速度"
       },
@@ -1869,6 +1892,9 @@
         "swap back": "停用还原",
         "snap": "吸附",
         "place delay": "放置延迟",
+        "edge sneak": "边缘下蹲",
+        "cancel sprint": "取消冲刺",
+        "stop when no blocks": "无方块时停手",
         "45 degrees": "45 度",
         "rotation mode": {
           "_value": "旋转模式",
@@ -2743,6 +2769,17 @@
       }
     },
     "elements": {
+      "scoreboard": {
+        "_value": "计分板",
+        "scale": "缩放",
+        "background color": "背景颜色",
+        "corner radius": "圆角",
+        "background blur": "背景模糊",
+        "blur strength": "模糊强度",
+        "drop shadow": "阴影",
+        "shadow blur": "阴影模糊",
+        "shadow color": "阴影颜色"
+      },
       "player info": {
         "_value": "玩家信息",
         "players": "玩家",
@@ -3037,6 +3074,8 @@
       "transaction_count_too_high": "缓存包过多，提前释放",
       "scaffold_flying_warning": "你也是要飞了",
       "scaffold_toggle_on_teleport": "传送时已关闭",
+      "scaffold_no_blocks": "搭路暂停：没有方块",
+      "antivoid_rescue": "反虚空：已拉回安全位置",
       "serverbound_packet_flush_failed": "客户端数据包队列释放失败",
       "clientbound_packet_flush_failed": "服务端数据包队列释放失败",
       "key_friend_added": "已将 %s 添加为好友",

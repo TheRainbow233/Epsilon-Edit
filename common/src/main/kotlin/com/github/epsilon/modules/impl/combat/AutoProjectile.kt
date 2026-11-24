@@ -118,6 +118,7 @@ object AutoProjectile : Module("Auto Projectile", Category.COMBAT) {
         return level.players()
             .asSequence()
             .filter { it !== player && it.isAlive && !it.isSpectator }
+            .filter { !AntiBot.isBot(it) && !TargetManager.isSameTeam(it) }
             .filter { player.distanceToSqr(it) <= range * range }
             .minByOrNull { player.distanceToSqr(it) }
     }

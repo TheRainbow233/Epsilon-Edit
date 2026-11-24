@@ -1,5 +1,6 @@
 package com.github.epsilon.mixins;
 
+import com.github.epsilon.elements.impl.CustomScoreboard;
 import com.github.epsilon.elements.impl.island.Island;
 import com.github.epsilon.modules.impl.render.BetterScoreboard;
 import com.github.epsilon.modules.impl.render.FreeCamera;
@@ -36,30 +37,30 @@ public class MixinHud {
 
     @Inject(method = "extractScoreboardSidebar", at = @At("HEAD"), cancellable = true)
     private void onExtractScoreboardSidebar(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        if (NoRender.INSTANCE.noScoreboard()) {
+        if (NoRender.INSTANCE.noScoreboard() || CustomScoreboard.INSTANCE.isEnabled()) {
             ci.cancel();
             return;
         }
-        if (BetterScoreboard.INSTANCE.isEnabled()) BetterScoreboard.INSTANCE.beginScoreboardExtraction();
+        //if (BetterScoreboard.INSTANCE.isEnabled()) BetterScoreboard.INSTANCE.beginScoreboardExtraction();
     }
 
-    @WrapOperation(method = "displayScoreboardSidebar", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
-    private void replaceScoreboardBackground(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, int col, Operation<Void> original) {
-        if (BetterScoreboard.INSTANCE.isEnabled()) {
-            BetterScoreboard.INSTANCE.captureVanillaBackground(x0, y0, x1, y1);
-        } else {
-            original.call(graphics, x0, y0, x1, y1, col);
-        }
-    }
-
-    @WrapOperation(method = "displayScoreboardSidebar", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;IIIZ)V"))
-    private void offsetScoreboardText(GuiGraphicsExtractor graphics, Font font, Component text, int x, int y, int color, boolean dropShadow, Operation<Void> original) {
-        if (BetterScoreboard.INSTANCE.isEnabled()) {
-            x += BetterScoreboard.INSTANCE.getRoundedXOffset();
-            y += BetterScoreboard.INSTANCE.getRoundedYOffset();
-        }
-        original.call(graphics, font, text, x, y, color, dropShadow);
-    }
+//    @WrapOperation(method = "displayScoreboardSidebar", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;fill(IIIII)V"))
+//    private void replaceScoreboardBackground(GuiGraphicsExtractor graphics, int x0, int y0, int x1, int y1, int col, Operation<Void> original) {
+//        if (BetterScoreboard.INSTANCE.isEnabled()) {
+//            BetterScoreboard.INSTANCE.captureVanillaBackground(x0, y0, x1, y1);
+//        } else {
+//            original.call(graphics, x0, y0, x1, y1, col);
+//        }
+//    }
+//
+//    @WrapOperation(method = "displayScoreboardSidebar", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;text(Lnet/minecraft/client/gui/Font;Lnet/minecraft/network/chat/Component;IIIZ)V"))
+//    private void offsetScoreboardText(GuiGraphicsExtractor graphics, Font font, Component text, int x, int y, int color, boolean dropShadow, Operation<Void> original) {
+//        if (BetterScoreboard.INSTANCE.isEnabled()) {
+//            x += BetterScoreboard.INSTANCE.getRoundedXOffset();
+//            y += BetterScoreboard.INSTANCE.getRoundedYOffset();
+//        }
+//        original.call(graphics, font, text, x, y, color, dropShadow);
+//    }
 
     @Inject(method = "extractTabList", at = @At("HEAD"), cancellable = true)
     private void onExtractTabList(GuiGraphicsExtractor graphics, DeltaTracker deltaTracker, CallbackInfo ci) {

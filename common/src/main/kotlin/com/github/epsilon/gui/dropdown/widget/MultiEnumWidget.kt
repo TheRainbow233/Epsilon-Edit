@@ -16,7 +16,7 @@ import com.mojang.blaze3d.platform.InputConstants
 import com.github.epsilon.gui.lib.state.LuminAnimatable as Animation
 
 /**
- * 多选枚举设置的下拉控件：折叠时显示摘要，展开后每项带开关，可同时选中多个值。
+ * 多选枚举设置的下拉控件：折叠时显示摘要，展开后点击整行切换选中状态，可同时选中多个值。
  */
 class MultiEnumWidget(setting: MultiEnumSetting<*>) : SettingWidget<MultiEnumSetting<*>>(setting) {
 
@@ -125,18 +125,24 @@ class MultiEnumWidget(setting: MultiEnumSetting<*>) : SettingWidget<MultiEnumSet
             if (rowY >= visibleBottom) continue
 
             val hovered = isOptionHovered(mouseX.toDouble(), mouseY.toDouble(), index)
-            if (hovered) {
+            val selected = setting.containsUnchecked(mode)
+
+            // 选中/悬停都用整行背景反馈，不再画右侧小开关。
+            if (hovered || selected) {
                 RoundRect(
                     fieldX + 1.5f,
                     rowY,
                     fieldW - 3.0f,
                     ROW_HEIGHT,
                     FIELD_RADIUS - 1.0f,
-                    MD3Theme.rowSurface(1.0f)
+                    if (hovered) {
+                        MD3Theme.rowSurface(1.0f)
+                    } else {
+                        MD3Theme.withAlpha(MD3Theme.SECONDARY_CONTAINER, 120)
+                    }
                 )
             }
 
-            val selected = setting.containsUnchecked(mode)
             val textY = rowY + (ROW_HEIGHT - metrics.textHeight(OPTION_TEXT_SCALE)) * 0.5f
             Text(
                 setting.getTranslatedValueUnchecked(mode),
@@ -144,16 +150,6 @@ class MultiEnumWidget(setting: MultiEnumSetting<*>) : SettingWidget<MultiEnumSet
                 textY,
                 OPTION_TEXT_SCALE,
                 if (selected) MD3Theme.TEXT_PRIMARY else DropdownTheme.settingLabelMuted()
-            )
-            Toggle(
-                UiRect(
-                    fieldX + fieldW - TOGGLE_RIGHT_INSET - TOGGLE_WIDTH,
-                    rowY + (ROW_HEIGHT - TOGGLE_HEIGHT) * 0.5f,
-                    TOGGLE_WIDTH,
-                    TOGGLE_HEIGHT
-                ),
-                if (selected) 1.0f else 0.0f,
-                if (hovered) 1.0f else 0.0f
             )
         }
     }
@@ -218,9 +214,6 @@ class MultiEnumWidget(setting: MultiEnumSetting<*>) : SettingWidget<MultiEnumSet
         private const val ROW_HEIGHT = 14.0f
         private const val OPTION_GAP = 1.0f
         private const val OPTION_TEXT_SCALE = 0.55f
-        private const val TOGGLE_WIDTH = 18.0f
-        private const val TOGGLE_HEIGHT = 9.0f
-        private const val TOGGLE_RIGHT_INSET = 6.0f
     }
 
 }

@@ -6,6 +6,8 @@ import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.ClientTickEvent
 import com.github.epsilon.kernel.jvm.NonNullContext
 import com.github.epsilon.managers.FriendManager
+import com.github.epsilon.managers.target.TargetManager
+import com.github.epsilon.modules.impl.combat.AntiBot
 import com.github.epsilon.modules.impl.movement.Blink
 import net.minecraft.core.BlockPos
 import net.minecraft.core.Direction
@@ -69,6 +71,7 @@ object AutoTrap : TrapBase("Auto Trap", EpsilonTranslations.AutoTrap.NO_BLOCK_FO
 
     private fun NonNullContext.findTarget(): Player? = level.players().asSequence()
         .filter { it !== player && it.isAlive && !it.isSpectator && !FriendManager.isFriend(it) }
+        .filter { !AntiBot.isBot(it) && !TargetManager.isSameTeam(it) }
         .filter { player.distanceToSqr(it) <= targetRange * targetRange }
         .minByOrNull { player.distanceToSqr(it) }
 

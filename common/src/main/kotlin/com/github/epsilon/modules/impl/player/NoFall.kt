@@ -17,6 +17,7 @@ object NoFall : Module("No Fall", Category.PLAYER) {
     private enum class Mode {
         GroundSpoof,
         GrimJump,
+        NoGroundA,
     }
 
     private val mode by enumSetting("Mode", Mode.GroundSpoof)
@@ -38,6 +39,12 @@ object NoFall : Module("No Fall", Category.PLAYER) {
             when (mode) {
                 Mode.GroundSpoof -> {
                     if (player.fallDistance > fallDistance) event.isOnGround = true
+                }
+
+                Mode.NoGroundA -> {
+                    if (!player.isCreative && !player.isSpectator && !player.abilities.mayfly) {
+                        event.isOnGround = false
+                    }
                 }
 
                 Mode.GrimJump -> {

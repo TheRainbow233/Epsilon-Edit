@@ -49,6 +49,10 @@ import net.minecraft.world.phys.Vec3
 import java.awt.Color
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
+import kotlin.random.Random
 import kotlin.math.roundToInt
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swapBack as restoreHotbarSlot
 
@@ -137,8 +141,11 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
     private val swapMode by enumSetting("Swap Mode", SwapMode.Normal)
     private val swapBack by boolSetting("Swap Back", true, { swapMode == SwapMode.Normal })
     private val snap by boolSetting("Snap", false, { mode == Mode.GodBridge && rotationMode != RotationMode.Packet })
-    // 仅 GodBridge 生效：成功放置后等待 N tick 再放下一个方块。
-    private val placeDelay by intSetting("Place Delay", 0, 0..10, 1, { mode == Mode.GodBridge })
+    // 两次成功放置之间至少跳过的可放置机会（tick）；4 对应原版右键 4 tick 冷却，接近人手节奏。
+    private val placeDelay by intSetting("Place Delay", 4, 0..10, 1, { mode != Mode.TellyBridge })
+    private val edgeSneak by boolSetting("Edge Sneak", true, { mode != Mode.TellyBridge })
+    private val cancelSprint by boolSetting("Cancel Sprint", true, { mode != Mode.TellyBridge })
+    private val stopWhenNoBlocks by boolSetting("Stop When No Blocks", true, { mode != Mode.TellyBridge })
     private val degrees45 by boolSetting("45 Degrees", false, { rotationMode != RotationMode.Packet })
     private val rotationMode by enumSetting("Rotation Mode", RotationMode.Static)
     private val raytrace by enumSetting("Raytrace Mode", RaytraceMode.Normal, { rotationMode != RotationMode.Packet })
@@ -175,9 +182,21 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
     private var rotateCount = 0
     private var forwardInput = 0.0f
     private var strafeInput = 0.0f
-    private var inputYaw = 0.0f
     private var rawInputYaw = 0.0f
     private var lengthSqr = 4.5 * 4.5
+
+    /** 相对移动方向的偏航候选，按“离移动方向由近到远”排列。 */
+    private val YAW_OFFSETS = floatArrayOf(
+        0f, 10f, -10f, 20f, -20f, 30f, -30f, 40f, -40f, 50f, -50f, 60f, -60f, 70f, -70f,
+        80f, -80f, 90f, -90f, 100f, -100f, 110f, -110f, 120f, -120f, 130f, -130f, 140f,
+        -140f, 150f, -150f, 160f, -160f, 170f, -170f, 180f
+    )
+
+    /** 俯仰候选，覆盖从接近垂直俯视到较平视的范围。 */
+    private val PITCH_CANDIDATES = floatArrayOf(82f, 78f, 74f, 70f, 66f, 60f, 55f)
+
+    /** 踩空预测取样距离：下一 tick 的步进。 */
+    private const val NEAR_LOOKAHEAD = 0.12
 
     private var blockResult: FindItemResult = FindItemResult(-1, 0, 0)
     private var shouldSwapBack = false
@@ -186,6 +205,18 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
 
     /** GodBridge 的放置冷却（tick）；其他模式不读取。 */
     private var placeCooldown = 0
+
+    // 放置后保持朝向一小段时间，再回到移动方向的俯视角度，避免“放完立刻甩到下一块”的机械感。
+    private var heldRotation: Rotation? = null
+    private var holdUntil = 0L
+    private var returnUntil = 0L
+
+    // 跳搭起跳时的多段旋转序列，模拟人手起跳过程中逐步抬视角的过程。
+    private val jumpStages = ArrayDeque<Rotation>()
+
+    // 安全保护：本 tick 是否成功放置（用于判断“继续走是否安全”）。
+    private var placedThisTick = false
+    private var noBlocksNotified = false
 
     private val renderBoxes: MutableList<RenderInfo> = ArrayList()
 
@@ -201,6 +232,8 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             emergencyPlacementActive = false
             pearlUsePacketSent = false
             placeCooldown = 0
+            heldRotation = null
+            jumpStages.clear()
         }
 
         onDisable {
@@ -208,6 +241,8 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             emergencyPlacementActive = false
             pearlUsePacketSent = false
             placeCooldown = 0
+            heldRotation = null
+            jumpStages.clear()
             if (shouldSwapBack) {
                 runSafe { restoreHotbarSlot() }
                 shouldSwapBack = false
@@ -261,15 +296,28 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
         }
 
         safeEventHandler<PlayerTickEvent.Pre> { event ->
-            if (placeCooldown > 0) placeCooldown--
             if (!event.isCancelled) emergencyPlacementActive = false
+            placedThisTick = false
 
             blockResult = findBlockResult()
-            if (!blockResult.found()) return@safeEventHandler
+            if (!blockResult.found()) {
+                // 没有方块：如果正朝边缘走，提示一次；停手由 KeyboardInputEvent 统一处理。
+                if (stopWhenNoBlocks && mode != Mode.TellyBridge && !noBlocksNotified && player.onGround() && isAboutToStepOff()) {
+                    noBlocksNotified = true
+                    NotificationManager.warning(
+                        translatedName,
+                        EpsilonTranslations.Notifications.SCAFFOLD_NO_BLOCKS.getTranslatedName(),
+                        this@Scaffold.hashCode()
+                    )
+                }
+                return@safeEventHandler
+            }
+            noBlocksNotified = false
 
             if (player.onGround()) {
                 airTicks = 0
                 yLevel = Mth.floor(player.y) - 1
+                jumpStages.clear()
             } else {
                 airTicks++
             }
@@ -330,10 +378,6 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
         safeEventHandler<KeyboardInputEvent>(EventPriority.HIGHEST) { event ->
             forwardInput = event.forward
             strafeInput = event.strafe
-            inputYaw = Mth.wrapDegrees(
-                ((player.yRot + Math.toDegrees(atan2(-strafeInput.toDouble(), forwardInput.toDouble()))
-                    .toFloat()) / 45.0f).roundToInt() * 45.0f
-            )
             rawInputYaw = Mth.wrapDegrees(
                 (player.yRot + Math.toDegrees(atan2(-strafeInput.toDouble(), forwardInput.toDouble()))
                     .toFloat()).roundToInt().toFloat()
@@ -341,6 +385,36 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
 
             if (mode == Mode.TellyBridge && player.onGround() && !mc.options.keyJump.isDown && player.isMoving) {
                 event.jump = true
+            }
+
+            // 跳搭依赖精确的起跳/放置节奏，不做这些保护，否则会打断连跳。
+            if (mode != Mode.TellyBridge) {
+                val noBlocks = !blockResult.found() || !canUseBlockResult()
+                val aboutToFall = player.onGround() &&
+                        isAboutToStepOff(event.forward.toDouble(), event.strafe.toDouble())
+                if (aboutToFall) {
+                    if (noBlocks && stopWhenNoBlocks) {
+                        // 没有方块可放：直接停掉移动输入，避免继续前冲。
+                        event.forward = 0.0f
+                        event.strafe = 0.0f
+                        event.sneak = true
+                        event.jump = false
+                        if (cancelSprint) {
+                            event.sprint = false
+                            player.setSprinting(false)
+                        }
+                    } else if (!placedThisTick) {
+                        // 这一 tick 没有成功放置：取消冲刺（服务端可见）并按需蹲住。
+                        if (cancelSprint) {
+                            event.sprint = false
+                            player.setSprinting(false)
+                        }
+                        if (edgeSneak) {
+                            event.sneak = true
+                            event.jump = false
+                        }
+                    }
+                }
             }
         }
 
@@ -414,18 +488,31 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
                 return@runSafe
             }
 
-            rotation = getRotation(blockPos, direction)
-            var speed = rotationSpeed
-
-            if (rotationMode == RotationMode.Hypixel) {
-                speed = if (airTicks <= 1) 127 else 35
-            } else if (rotationMode == RotationMode.Heypixel) {
-                speed = if (airTicks <= 1) rotationSpeed else rotationSpeed2
+            // 起跳多段旋转：先走完 4 帧的抬视角序列，再进入正常瞄准/放置。
+            if (airTicks == 1 && jumpStages.isEmpty()) {
+                beginJumpStages()
+            }
+            if (jumpStages.isNotEmpty()) {
+                RotationManager.setRotations(jumpStages.removeFirst(), 180.0)
+                return@runSafe
             }
 
-            val current = rotation
-            if (current != null) {
-                RotationManager.setRotations(current, speed.toDouble())
+            val targetPos = blockPos
+            val targetFace = direction
+            if (targetPos != null && targetFace != null) {
+                val aim = getRotation(targetPos, targetFace)
+                rotation = aim
+                var speed = rotationSpeed
+
+                if (rotationMode == RotationMode.Hypixel) {
+                    speed = if (airTicks <= 1) 127 else 35
+                } else if (rotationMode == RotationMode.Heypixel) {
+                    speed = if (airTicks <= 1) rotationSpeed else rotationSpeed2
+                }
+
+                applyAim(aim, speed)
+            } else {
+                holdAim()
             }
 
             if (airTicks > tellyTicks) {
@@ -437,11 +524,114 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
     private fun handleNormal() {
         runSafe {
             if (rotationMode != RotationMode.Packet && (Eagle.isOverEdge() || !snap || !player.onGround())) {
-                rotation = getRotation(blockPos, direction)
-                RotationManager.setRotations(rotation, rotationSpeed.toDouble())
+                val targetPos = blockPos
+                val targetFace = direction
+                if (targetPos != null && targetFace != null) {
+                    val aim = getRotation(targetPos, targetFace)
+                    rotation = aim
+                    applyAim(aim, rotationSpeed)
+                } else {
+                    holdAim()
+                }
             }
             place()
         }
+    }
+
+    /** 正常瞄准；速度沿用设置，避免连续放置时把朝向“甩”过去。 */
+    private fun NonNullContext.applyAim(desired: Rotation, speed: Int) {
+        RotationManager.setRotations(desired, speed.toDouble())
+    }
+
+    /** 没有可放置目标时，保持上一轮放置朝向一小段时间，再回到移动方向的俯视角度。 */
+    private fun NonNullContext.holdAim() {
+        val hold = heldRotation ?: return
+        val now = System.currentTimeMillis()
+        when {
+            now < holdUntil -> RotationManager.setRotations(hold, 180.0)
+            now < returnUntil -> RotationManager.setRotations(restRotation(), 55.0)
+            else -> heldRotation = null
+        }
+    }
+
+    /** 保持当前放置朝向一段时间；冲刺时最长，静止次之，行走最短（与原版搭路节奏接近）。 */
+    private fun NonNullContext.beginHold() {
+        val now = System.currentTimeMillis()
+        heldRotation = RotationManager.getRotation()
+        val holdMillis = when {
+            player.isSprinting -> 650L
+            !player.isMoving -> 450L
+            else -> 110L
+        }
+        holdUntil = now + holdMillis
+        returnUntil = holdUntil + 220L
+    }
+
+    /** 回落目标：移动方向 + 略微俯视，避免服务端朝向永远停在 85°。 */
+    private fun NonNullContext.restRotation(): Rotation = Rotation(
+        Mth.wrapDegrees(rawInputYaw + MathUtils.getRandom(-2.5f, 2.5f)),
+        (78.0f + MathUtils.getRandom(-3.0f, 3.0f)).coerceIn(-90.0f, 90.0f)
+    )
+
+    /**
+     * 预测“下一步是否会踩空”。
+     *
+     * 旧实现把整个包围盒平移后向下探测：包围盒有 0.6 宽，平移 0.35 仍会和当前方块相交，
+     * 斜着走（两个轴各走一半）时几乎永远不会命中，这就是斜搭偶尔不蹲的原因。
+     * 这里改为沿真实移动方向取样“脚下支撑点”，取 0.12 格和 0.35+速度 两个距离，
+     * 任意一点下方没有碰撞形状就视为即将踩空。
+     */
+    private fun NonNullContext.isAboutToStepOff(
+        forward: Double = player.input.moveVector.y.toDouble(),
+        strafe: Double = player.input.moveVector.x.toDouble(),
+    ): Boolean {
+        if (!player.onGround()) return false
+
+        val speed = player.deltaMovement.horizontal().length()
+        val dirX: Double
+        val dirZ: Double
+        if (speed > 0.03) {
+            // 优先用真实速度方向，兼容 MovementFix / 惯性 / 击退
+            dirX = player.deltaMovement.x / speed
+            dirZ = player.deltaMovement.z / speed
+        } else {
+            if (forward == 0.0 && strafe == 0.0) return false
+            val rad = Math.toRadians(player.yRot.toDouble())
+            val sin = sin(rad)
+            val cos = cos(rad)
+            val rawX = strafe * cos - forward * sin
+            val rawZ = forward * cos + strafe * sin
+            val length = hypot(rawX, rawZ)
+            if (length < 1.0E-4) return false
+            dirX = rawX / length
+            dirZ = rawZ / length
+        }
+
+        val pos = player.position()
+        val far = maxOf(0.35, speed * 1.2).coerceAtMost(0.7)
+        return !hasSupportUnder(pos.x + dirX * NEAR_LOOKAHEAD, pos.z + dirZ * NEAR_LOOKAHEAD) ||
+                !hasSupportUnder(pos.x + dirX * far, pos.z + dirZ * far)
+    }
+
+    /** 检查某个水平位置脚下是否还有碰撞形状（薄盒采样，兼容台阶/地毯/雪层等非整格方块）。 */
+    private fun NonNullContext.hasSupportUnder(x: Double, z: Double): Boolean {
+        val box = AABB(
+            x - 0.02, player.y - 0.2, z - 0.02,
+            x + 0.02, player.y + 0.01, z + 0.02
+        )
+        return level.getBlockCollisions(player, box).any()
+    }
+
+    /** 跳搭起跳的四段旋转：先回望，再逐步转回移动方向并抬高俯仰角。 */
+    private fun beginJumpStages() {
+        val base = Mth.wrapDegrees(rawInputYaw)
+        val side = if (Random.nextBoolean()) 1.0f else -1.0f
+        heldRotation = null
+        jumpStages.clear()
+        jumpStages.add(Rotation(Mth.wrapDegrees(base + 180.0f + MathUtils.getRandom(-4.0f, 4.0f)), 22.0f + MathUtils.getRandom(-3.0f, 3.0f)))
+        jumpStages.add(Rotation(Mth.wrapDegrees(base + side * 112.0f + MathUtils.getRandom(-4.0f, 4.0f)), 43.0f + MathUtils.getRandom(-3.0f, 3.0f)))
+        jumpStages.add(Rotation(Mth.wrapDegrees(base + side * 34.0f + MathUtils.getRandom(-2.0f, 2.0f)), 52.0f + MathUtils.getRandom(-2.0f, 2.0f)))
+        jumpStages.add(Rotation(Mth.wrapDegrees(base + side * 31.0f + MathUtils.getRandom(-2.0f, 2.0f)), 67.0f + MathUtils.getRandom(-2.0f, 2.0f)))
     }
 
     private fun place() {
@@ -449,8 +639,6 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             if (!onAir() || blockPos == null || direction == null || !canUseBlockResult()) {
                 return@runSafe
             }
-            // GodBridge 的放置间隔；紧急自救走独立路径，不受这里限制。
-            if (mode == Mode.GodBridge && placeCooldown > 0) return@runSafe
             val pos = blockPos ?: return@runSafe
             val face = direction ?: return@runSafe
 
@@ -462,10 +650,27 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
                 if (skip) return@runSafe
             }
 
-            if (placeBlock(pos, face) && mode == Mode.GodBridge) {
-                placeCooldown = placeDelay
+            // 只在“本来这一 tick 就能放”时消耗延迟；跳搭由 airTicks/tellyTicks 控制节奏，不参与延迟。
+            if (mode != Mode.TellyBridge && placeCooldown > 0) {
+                placeCooldown--
+                return@runSafe
+            }
+
+            if (placeBlock(pos, face)) {
+                if (mode != Mode.TellyBridge) {
+                    placeCooldown = nextPlaceCooldown()
+                }
+                placedThisTick = true
+                beginHold()
             }
         }
+    }
+
+    /** 下一次放置前要跳过的机会数；[placeDelay] 表示目标间隔 tick，这里做 ±1 抖动。 */
+    private fun nextPlaceCooldown(): Int {
+        if (placeDelay <= 1) return 0
+        val jitter = if (placeDelay >= 3) Random.nextInt(-1, 2) else 0
+        return (placeDelay - 1 + jitter).coerceAtLeast(0)
     }
 
     private fun NonNullContext.placeBlock(pos: BlockPos, face: Direction): Boolean {
@@ -559,6 +764,12 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
             return@runSafeOrFalse false
         }
 
+        // 目标位置必须是可替换方块（或液体）；否则 use-item 只会被服务端静默拒绝，还会产生无效点击包。
+        val targetState = level.getBlockState(pos)
+        if (!targetState.canBeReplaced() && targetState.fluidState.isEmpty) {
+            return@runSafeOrFalse false
+        }
+
         val center = Vec3.atBottomCenterOf(pos)
         for (dir in Direction.entries) {
             val normal = dir.unitVec3
@@ -602,61 +813,17 @@ object Scaffold : Module("Scaffold", Category.MOVEMENT) {
         }
 
         val calculated = calculate(pos, direction)
-        val yawArray = floatArrayOf(
-            -135f,
-            -90f,
-            -45f,
-            0f,
-            45f,
-            90f,
-            135f,
-            180f
-        )
-        val baseYaw = Mth.wrapDegrees(inputYaw - 180f)
+        // 以移动方向为基准由近到远扫描，优先保持“朝着行进方向下方看”的姿势，而不是每次都绕到正后方。
+        val base = Mth.wrapDegrees(rawInputYaw)
 
-        for (i in 1 until yawArray.size) {
-            val key = yawArray[i]
-            var j = i - 1
-            while (j >= 0 && abs(Mth.wrapDegrees(baseYaw - yawArray[j])) > abs(Mth.wrapDegrees(baseYaw - key))) {
-                yawArray[j + 1] = yawArray[j]
-                j -= 1
-            }
-            yawArray[j + 1] = key
-        }
-
-        val pitchArray = floatArrayOf(75.0f, 82.0f, 87.0f)
-
-        val finalYawArray = FloatArray(yawArray.size + 1)
-        System.arraycopy(yawArray, 0, finalYawArray, 0, yawArray.size)
-        finalYawArray[yawArray.size] = calculated.yaw
-
-        for (yaw in finalYawArray) {
-            if (degrees45 && yaw % 90 == 0.0f) {
+        for (offset in YAW_OFFSETS) {
+            val yaw = Mth.wrapDegrees(base + offset + MathUtils.getRandom(-0.7f, 0.7f))
+            if (degrees45 && abs(Mth.wrapDegrees(yaw) % 90.0f) < 1.0f) {
                 continue
             }
-            for (pitch in pitchArray) {
-                val candidate = Rotation(
-                    yaw + MathUtils.getRandom(-0.3f, 0.3f),
-                    pitch + MathUtils.getRandom(-0.3f, 0.3f)
-                )
-                val matches = if (raytrace == RaytraceMode.Normal) {
-                    overBlock(candidate, pos)
-                } else {
-                    overBlock(candidate, pos, direction)
-                }
-                if (matches) {
-                    return@runSafeOrElse candidate
-                }
-            }
-
-            for (pitch in -90 until 90) {
-                val candidate = Rotation(yaw, pitch.toFloat())
-                val matches = if (raytrace == RaytraceMode.Normal) {
-                    overBlock(candidate, pos)
-                } else {
-                    overBlock(candidate, pos, direction)
-                }
-                if (matches) {
+            for (pitchBase in PITCH_CANDIDATES) {
+                val candidate = Rotation(yaw, pitchBase + MathUtils.getRandom(-0.8f, 0.8f))
+                if (overBlock(candidate, pos, direction)) {
                     return@runSafeOrElse candidate
                 }
             }

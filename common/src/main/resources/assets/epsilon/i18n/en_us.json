@@ -1590,6 +1590,17 @@
           "fishingrod": "Fishing Rod",
           "block": "Block"
         },
+        "anti void": {
+          "_value": "Anti Void",
+          "mode": {
+            "_value": "Mode",
+            "blink": "Blink",
+            "callback": "Callback"
+          },
+          "void level": "Void Level",
+          "predict ticks": "Predict Ticks",
+          "pullback time": "Pullback Time"
+        },
         "auto armor": "Auto Armor",
         "switch sword": "Switch Sword",
         "sword slot": "Sword Slot",
@@ -1641,7 +1652,8 @@
         "mode": {
           "_value": "Mode",
           "groundspoof": "Ground Spoof",
-          "grimjump": "Grim Jump"
+          "grimjump": "Grim Jump",
+          "nogrounda": "NoGround A"
         },
         "fall distance": "Fall Distance"
       },
@@ -1665,7 +1677,8 @@
         "max delay": "Max Delay",
         "auto close": "Auto Close",
         "close delay": "Close Delay",
-        "ender chest": "Ender Chest"
+        "ender chest": "Ender Chest",
+        "take all": "Take All"
       },
       "timer": {
         "_value": "Timer",
@@ -1705,8 +1718,17 @@
       },
       "dolphin": "Dolphin",
       "auto sprint": "Auto Sprint",
+      "bhop": {
+        "_value": "Bhop",
+        "speed": "Speed",
+        "offset": "Offset",
+        "strafe decay": "Strafe Decay",
+        "auto jump": "Auto Jump",
+        "disable while sneaking": "Disable While Sneaking"
+      },
       "blink": {
         "_value": "Blink",
+        "auto release": "Auto Release",
         "tick": "Tick",
         "slow release": "Slow Release",
         "slow move": "Slow Move",
@@ -1749,6 +1771,7 @@
       "flight": {
         "_value": "Flight",
         "stop on disable": "Stop On Disable",
+        "bypass vanilla check": "Bypass Vanilla Check",
         "horizontal speed": "Horizontal Speed",
         "vertical speed": "Vertical Speed"
       },
@@ -1869,6 +1892,9 @@
         "swap back": "Swap Back",
         "snap": "Snap",
         "place delay": "Place Delay",
+        "edge sneak": "Edge Sneak",
+        "cancel sprint": "Cancel Sprint",
+        "stop when no blocks": "Stop When No Blocks",
         "45 degrees": "45 Degrees",
         "rotation mode": {
           "_value": "Rotation Mode",
@@ -2743,6 +2769,17 @@
       }
     },
     "elements": {
+      "scoreboard": {
+        "_value": "Scoreboard",
+        "scale": "Scale",
+        "background color": "Background Color",
+        "corner radius": "Corner Radius",
+        "background blur": "Background Blur",
+        "blur strength": "Blur Strength",
+        "drop shadow": "Drop Shadow",
+        "shadow blur": "Shadow Blur",
+        "shadow color": "Shadow Color"
+      },
       "player info": {
         "_value": "Player Info",
         "players": "Players",
@@ -3037,6 +3074,8 @@
       "transaction_count_too_high": "Transaction count too high",
       "scaffold_flying_warning": "You are about to fly",
       "scaffold_toggle_on_teleport": "Toggled off on teleport",
+      "scaffold_no_blocks": "Scaffold paused: no blocks",
+      "antivoid_rescue": "AntiVoid: pulled back to safety",
       "serverbound_packet_flush_failed": "Failed to flush serverbound packets",
       "clientbound_packet_flush_failed": "Failed to flush clientbound packets",
       "key_friend_added": "Added %s as a friend",

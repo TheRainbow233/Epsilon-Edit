@@ -4,14 +4,15 @@ import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.PlayerTickEvent
 import com.github.epsilon.kernel.gameplay.inventory.ContainerClicks.shiftClick
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils
-import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestArmorScore
+import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getArmorStack
+import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestArmorValue
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestAxeScore
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestCrossbowScore
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestPickaxeScore
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestPowerBowScore
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestPunchBowScore
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestShovelScore
-import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestSwordDamage
+import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBestSwordValue
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getBlockCountInInventory
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getItemCount
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.hasItem
@@ -33,6 +34,7 @@ object Stealer : Module("Stealer", Category.PLAYER) {
     private val autoClose by boolSetting("Auto Close", true)
     private val closeDelay by intSetting("Close Delay", 100, 0..1000, 1, { autoClose })
     private val pickEnderChest by boolSetting("Ender Chest", false)
+    private val takeAll by boolSetting("Take All", false)
 
     private var lastTickScreen: Screen? = null
 
@@ -92,16 +94,27 @@ object Stealer : Module("Stealer", Category.PLAYER) {
     fun NonNullContext.isItemUseful(stack: ItemStack): Boolean {
         if (stack.isEmpty) {
             return false
-        } else if (NavenInvUtils.isGodItem(stack) || NavenInvUtils.isSharpnessAxe(stack)) {
+        }
+        if (takeAll) {
+            return true
+        }
+        if (NavenInvUtils.isGodItem(stack) || NavenInvUtils.isSharpnessAxe(stack)) {
             return true
         } else if (NavenInvUtils.isArmor(stack)) {
-            val protection = NavenInvUtils.getProtection(stack)
-            val bestArmor = getBestArmorScore(NavenInvUtils.getArmorSlot(stack)!!)
-            return !(protection <= bestArmor)
+            val slot = NavenInvUtils.getArmorSlot(stack)!!
+            val score = NavenInvUtils.getArmorScore(stack)
+            val bestArmor = getBestArmorValue(slot)
+            // 协议转换（ViaFabric 1.8 等）拿不到属性时评分可能全为 0，
+            // 退化为“空槽或耐久更高”判断，避免完全不捡护甲。
+            if (score == 0.0F && bestArmor == 0.0F) {
+                val current = getArmorStack(slot)
+                return current.isEmpty || stack.maxDamage > current.maxDamage
+            }
+            return score > bestArmor
         } else if (NavenInvUtils.isSword(stack)) {
-            val damage = NavenInvUtils.getSwordDamage(stack)
-            val bestDamage = getBestSwordDamage()
-            return !(damage <= bestDamage)
+            val score = NavenInvUtils.getWeaponScore(stack)
+            val bestScore = getBestSwordValue()
+            return score > bestScore
         } else if (NavenInvUtils.isPickaxe(stack)) {
             val score = NavenInvUtils.getToolScore(stack)
             val bestScore = getBestPickaxeScore()
@@ -152,17 +165,20 @@ object Stealer : Module("Stealer", Category.PLAYER) {
     }
 
     private fun NonNullContext.isBestItemInChest(menu: ChestMenu, stack: ItemStack): Boolean {
+        if (takeAll) {
+            return true
+        }
         if (!NavenInvUtils.isGodItem(stack) && !NavenInvUtils.isSharpnessAxe(stack)) {
             for (i in 0 until menu.rowCount * 9) {
                 val checkStack = menu.getSlot(i).item
                 if (NavenInvUtils.isArmor(stack) && NavenInvUtils.isArmor(checkStack)) {
                     if (NavenInvUtils.getArmorSlot(stack) == NavenInvUtils.getArmorSlot(checkStack)
-                        && NavenInvUtils.getProtection(checkStack) > NavenInvUtils.getProtection(stack)
+                        && NavenInvUtils.getArmorScore(checkStack) > NavenInvUtils.getArmorScore(stack)
                     ) {
                         return false
                     }
                 } else if (NavenInvUtils.isSword(stack) && NavenInvUtils.isSword(checkStack)) {
-                    if (NavenInvUtils.getSwordDamage(checkStack) > NavenInvUtils.getSwordDamage(stack)) {
+                    if (NavenInvUtils.getWeaponScore(checkStack) > NavenInvUtils.getWeaponScore(stack)) {
                         return false
                     }
                 } else if (NavenInvUtils.isPickaxe(stack) && NavenInvUtils.isPickaxe(checkStack)) {

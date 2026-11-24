@@ -154,7 +154,10 @@ object NavenInvUtils {
             return null
         }
 
-        val equippable = stack.get(DataComponents.EQUIPPABLE) ?: return null
+        // ViaFabric 等协议转换可能把旧版本物品的默认组件剥掉，回退到物品原型的默认 EQUIPPABLE。
+        val equippable = stack.get(DataComponents.EQUIPPABLE)
+            ?: stack.item.defaultInstance.get(DataComponents.EQUIPPABLE)
+            ?: return null
         val slot = equippable.slot()
         return if (slot.isArmor && slot != EquipmentSlot.BODY) slot else null
     }
@@ -376,7 +379,14 @@ object NavenInvUtils {
     fun NonNullContext.getBestSword(): ItemStack? {
         return getAllItems()
             .filter { item -> isSword(item) }
-            .maxByOrNull { item -> (getSwordDamage(item) * 100.0F).toInt() }
+            .maxByOrNull { item -> (getWeaponScore(item) * 100.0F).toInt() }
+    }
+
+    /** 背包内剑类武器的最高综合评分（含附魔、耐久）。 */
+    fun NonNullContext.getBestSwordValue(): Float {
+        return getAllItems()
+            .filter { item -> isSword(item) }
+            .maxOfOrNull { item -> getWeaponScore(item) } ?: 0.0F
     }
 
     /**
@@ -544,11 +554,9 @@ object NavenInvUtils {
     fun NonNullContext.getBestShapeAxe(): ItemStack? {
         return getAllItems()
             .filter { item ->
-                !item.isEmpty && isAxe(item) && isSharpnessAxe(item) && isItemValid(item) && !isGodAxe(
-                    item
-                )
+                !item.isEmpty && isAxe(item) && isSharpnessAxe(item) && isItemValid(item) && !isGodAxe(item)
             }
-            .maxByOrNull { item -> (getAxeDamage(item) * 100.0F).toInt() }
+            .maxByOrNull { item -> (getWeaponScore(item) * 100.0F).toInt() }
     }
 
     /**
@@ -670,7 +678,10 @@ object NavenInvUtils {
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.INFINITY)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FLAME)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.POWER) / 10.0F
-        return valence + stack.damageValue.toFloat() / stack.maxDamage.toFloat()
+        return valence +
+                getDurabilityRatio(stack) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.3F +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) * 0.5F
     }
 
     /**
@@ -686,7 +697,10 @@ object NavenInvUtils {
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.INFINITY)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FLAME)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.POWER)
-        return valence + stack.damageValue.toFloat() / stack.maxDamage.toFloat()
+        return valence +
+                getDurabilityRatio(stack) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.3F +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) * 0.5F
     }
 
     /**
@@ -697,23 +711,28 @@ object NavenInvUtils {
             return 0.0F
         }
 
-        val valence: Float
-        if (isPickaxe(stack)) {
-            valence = stack.getDestroySpeed(Blocks.STONE.defaultBlockState())
-        } else if (isAxe(stack)) {
-            valence = stack.getDestroySpeed(Blocks.OAK_LOG.defaultBlockState())
-        } else if (isShovel(stack)) {
-            valence = stack.getDestroySpeed(Blocks.DIRT.defaultBlockState())
-        } else {
-            return 0.0F
+        val state = when {
+            isPickaxe(stack) -> Blocks.STONE.defaultBlockState()
+            isAxe(stack) -> Blocks.OAK_LOG.defaultBlockState()
+            isShovel(stack) -> Blocks.DIRT.defaultBlockState()
+            else -> return 0.0F
+        }
+
+        var valence = stack.getDestroySpeed(state)
+        // ViaFabric 等协议转换可能丢失 TOOL 组件，回退到物品原型的默认挖掘速度。
+        if (valence <= 0.0F) {
+            valence = stack.item.defaultInstance.getDestroySpeed(state)
         }
 
         val efficiency = EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.EFFICIENCY)
         if (efficiency > 0) {
-            return valence + efficiency * 0.0075F
+            valence += (efficiency * efficiency + 1).toFloat()
         }
-
-        return valence
+        valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FORTUNE) * 0.5F
+        valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.SILK_TOUCH) * 0.5F
+        valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.3F
+        valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) * 0.5F
+        return valence + getDurabilityRatio(stack)
     }
 
     private fun getMainhandAttackDamage(stack: ItemStack?): Float {
@@ -725,6 +744,17 @@ object NavenInvUtils {
         stack.forEachModifier(EquipmentSlot.MAINHAND) { attribute, modifier ->
             if (attribute === Attributes.ATTACK_DAMAGE) {
                 damage += getAttributeModifierAmount(modifier)
+            }
+        }
+        // 旧版本物品经 ViaFabric 转换时可能没有默认 attribute_modifiers，回退到物品原型。
+        if (damage == 0.0F) {
+            val component = stack.get(DataComponents.ATTRIBUTE_MODIFIERS)
+            if (component == null || component.modifiers.isEmpty()) {
+                stack.item.defaultInstance.forEachModifier(EquipmentSlot.MAINHAND) { attribute, modifier ->
+                    if (attribute === Attributes.ATTACK_DAMAGE) {
+                        damage += getAttributeModifierAmount(modifier)
+                    }
+                }
             }
         }
         return damage
@@ -763,6 +793,27 @@ object NavenInvUtils {
     }
 
     /**
+     * 近战武器（剑/斧）的综合评分：基础伤害、Sharpness、功能性附魔和剩余耐久。
+     * 与 [getSwordDamage] 相比，这个分数用于“哪把武器更好”的比较，而不是纯伤害。
+     */
+    fun getWeaponScore(stack: ItemStack?): Float {
+        if (stack == null || stack.isEmpty || (!isSword(stack) && !isAxe(stack))) {
+            return 0.0F
+        }
+
+        var score = getMainhandAttackDamage(stack) + getSharpnessBonus(stack)
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FIRE_ASPECT) * 1.0F
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.KNOCKBACK) * 0.5F
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.LOOTING) * 0.5F
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.SWEEPING_EDGE) * 0.3F
+        score += (EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.SMITE) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.BANE_OF_ARTHROPODS)) * 0.2F
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.3F
+        score += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) * 0.5F
+        return score + getDurabilityRatio(stack)
+    }
+
+    /**
      * 根据护甲、韧性和附魔计算防具评分。
      */
     fun getProtection(stack: ItemStack?): Float {
@@ -771,20 +822,97 @@ object NavenInvUtils {
         }
 
         val slot = getArmorSlot(stack) ?: return 0.0F
-
-        var armor = 0.0F
-        var toughness = 0.0F
-        stack.forEachModifier(slot) { attribute, modifier ->
-            if (attribute === Attributes.ARMOR) {
-                armor += getAttributeModifierAmount(modifier)
-            } else if (attribute === Attributes.ARMOR_TOUGHNESS) {
-                toughness += getAttributeModifierAmount(modifier)
-            }
-        }
+        val (armor, toughness) = getArmorAttributes(stack, slot)
 
         return armor * 100.0F +
                 toughness * 10.0F +
                 EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.PROTECTION)
+    }
+
+    /**
+     * 玩家视角的护甲综合评分：护甲点、韧性、保护类附魔、功能附魔和剩余耐久。
+     *
+     * 1 点护甲和 1 EPF 都约等于 4% 减伤，所以统一乘 4 后再和附魔比较；
+     * 这样“铁甲 Protection IV”会高于“钻石甲无附魔”，更接近实际收益。
+     */
+    fun getArmorScore(stack: ItemStack?): Float {
+        if (stack == null || stack.isEmpty) {
+            return 0.0F
+        }
+
+        val slot = getArmorSlot(stack) ?: return 0.0F
+        val (armor, toughness) = getArmorAttributes(stack, slot)
+
+        val protectionEpf = EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.PROTECTION) +
+                (EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FIRE_PROTECTION) +
+                        EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.BLAST_PROTECTION) +
+                        EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.PROJECTILE_PROTECTION) +
+                        EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FEATHER_FALLING)) * 2
+
+        val utility = (EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.RESPIRATION) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.AQUA_AFFINITY) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.DEPTH_STRIDER) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.FROST_WALKER) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.SOUL_SPEED) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.SWIFT_SNEAK)) * 0.5F +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.5F +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.THORNS) * 0.5F
+
+        val durability = if (stack.maxDamage > 0) {
+            (stack.maxDamage - stack.damageValue).toFloat() / stack.maxDamage
+        } else {
+            1.0F
+        }
+
+        return armor * 4.0F +
+                toughness * 2.0F +
+                protectionEpf * 4.0F +
+                utility +
+                durability
+    }
+
+    /** 背包（含已穿戴）中指定护甲槽的最高综合评分。 */
+    fun NonNullContext.getBestArmorValue(slot: EquipmentSlot): Float {
+        return getAllItems()
+            .filter { item -> !item.isEmpty && getArmorSlot(item) == slot }
+            .maxOfOrNull { item -> getArmorScore(item) } ?: 0.0F
+    }
+
+    /** 当前已穿戴护甲槽的综合评分。 */
+    fun NonNullContext.getCurrentArmorValue(slot: EquipmentSlot): Float {
+        return getArmorScore(getArmorStack(slot))
+    }
+
+    /** 剩余耐久比例；不可损坏物品视为满耐久。 */
+    private fun getDurabilityRatio(stack: ItemStack): Float {
+        val max = stack.maxDamage
+        return if (max > 0) (max - stack.damageValue).toFloat() / max else 1.0F
+    }
+
+    /** 读取护甲点/韧性；组件为空时回退到物品原型默认值（兼容 ViaFabric 旧版本转换）。 */
+    private fun getArmorAttributes(stack: ItemStack, slot: EquipmentSlot): Pair<Float, Float> {
+        var armor = 0.0F
+        var toughness = 0.0F
+
+        fun accumulate(source: ItemStack) {
+            source.forEachModifier(slot) { attribute, modifier ->
+                if (attribute === Attributes.ARMOR) {
+                    armor += getAttributeModifierAmount(modifier)
+                } else if (attribute === Attributes.ARMOR_TOUGHNESS) {
+                    toughness += getAttributeModifierAmount(modifier)
+                }
+            }
+        }
+
+        accumulate(stack)
+        if (armor == 0.0F && toughness == 0.0F) {
+            val component = stack.get(DataComponents.ATTRIBUTE_MODIFIERS)
+            if (component == null || component.modifiers.isEmpty()) {
+                accumulate(stack.item.defaultInstance)
+            }
+        }
+        return armor to toughness
     }
 
     /**
@@ -799,7 +927,10 @@ object NavenInvUtils {
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.QUICK_CHARGE)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MULTISHOT)
         valence += EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.PIERCING)
-        return valence.toFloat()
+        return valence.toFloat() +
+                getDurabilityRatio(stack) +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.UNBREAKING) * 0.3F +
+                EnchantmentLookup.getEnchantmentLevel(stack, Enchantments.MENDING) * 0.5F
     }
 
     /**

@@ -10,6 +10,7 @@ import com.github.epsilon.kernel.jvm.runSafe
 import com.github.epsilon.kernel.time.TimerUtils
 import com.github.epsilon.managers.FriendManager
 import com.github.epsilon.managers.RotationManager
+import com.github.epsilon.managers.target.TargetManager
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
 import net.minecraft.core.component.DataComponents
@@ -272,7 +273,9 @@ object AimBot : Module("Aim Bot", Category.COMBAT) {
 
     private fun NonNullContext.shouldSkipPlayer(candidate: Player): Boolean {
         if (candidate === player || !candidate.isAlive || candidate.isDeadOrDying) return true
-        if (FriendManager.isFriend(candidate)) return true
+        if (FriendManager.isFriend(candidate)
+            || AntiBot.isBot(candidate) || TargetManager.isSameTeam(candidate)
+            ) return true
         return false
     }
 

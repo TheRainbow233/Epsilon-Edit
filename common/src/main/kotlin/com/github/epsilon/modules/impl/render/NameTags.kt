@@ -16,6 +16,7 @@ import com.github.epsilon.managers.HealthManager
 import com.github.epsilon.managers.target.TargetManager
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
+import com.github.epsilon.modules.impl.combat.AntiBot
 import net.minecraft.util.Mth
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.player.Player
@@ -163,10 +164,13 @@ object NameTags : Module("Name Tags", Category.RENDER) {
         val radius = 4.25f * renderScale
 
         val contents = ArrayList<Segment>(4)
+        if (AntiBot.isBot(player)) {
+            contents.add(Segment(IconChars.ROBOT_2, "Bot", true, Color.GRAY, Color.GRAY))
+        }
         if (friendStatus && FriendManager.isFriend(player)) {
             contents.add(Segment(IconChars.HANDSHAKE, "Friend", true, friendColor, friendColor))
         }
-        if (teamStatus && TargetManager.isSameTeam(player)) {
+        if (teamStatus && TargetManager.isSameTeam(player) && !AntiBot.isBot(player)) {
             contents.add(Segment(IconChars.GROUPS, "Team", true, teamColor, teamColor))
         }
         if (useMcNameColor) {

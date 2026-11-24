@@ -11,12 +11,10 @@ import com.github.epsilon.kernel.jvm.runSafe
 import com.github.epsilon.managers.network.ServerboundPacketManager
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
-import com.mojang.authlib.GameProfile
 import net.minecraft.client.gui.screens.RecoverWorldDataScreen
 import net.minecraft.client.player.RemotePlayer
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
 import net.minecraft.world.entity.Entity
-import java.nio.charset.StandardCharsets
 import java.util.UUID
 
 /**
@@ -27,10 +25,11 @@ import java.util.UUID
  */
 object Blink : Module("Blink", Category.MOVEMENT) {
 
-    private val tick by doubleSetting("Tick", 30.0, 5.0..200.0, 1.0)
-    private val slowRelease by boolSetting("Slow Release", true)
-    private val slowMove by boolSetting("Slow Move", false)
-    private val slowMoveTick by doubleSetting("Slow Move Tick", 5.0, 2.0..5.0, 1.0, { slowMove })
+    private val autoRelease by boolSetting("Auto Release", false)
+    private val tick by doubleSetting("Tick", 30.0, 5.0..200.0, 1.0, { autoRelease })
+    private val slowRelease by boolSetting("Slow Release", true, { autoRelease })
+    private val slowMove by boolSetting("Slow Move", false, { autoRelease })
+    private val slowMoveTick by doubleSetting("Slow Move Tick", 5.0, 2.0..5.0, 1.0, { autoRelease && slowMove })
     private val fakePlayer by boolSetting("Fake Player", false)
 
     private var localPlayer: RemotePlayer? = null
@@ -57,11 +56,9 @@ object Blink : Module("Blink", Category.MOVEMENT) {
             runSafe {
                 resetServerPosition()
                 if (fakePlayer) {
-                    val fake = RemotePlayer(
-                        level,
-                        GameProfile(UUID.nameUUIDFromBytes("".toByteArray(StandardCharsets.UTF_8)), "")
-                    )
-                    fake.id = -1337
+                    val fake = RemotePlayer(level, player.gameProfile)
+                    fake.setUUID(UUID.randomUUID())
+                    fake.id = findFreeEntityId()
                     fake.copyPosition(player)
                     fake.yRot = player.yRot
                     fake.xRot = player.xRot
@@ -91,7 +88,6 @@ object Blink : Module("Blink", Category.MOVEMENT) {
         safeEventHandler<Render3DEvent> {
             val fake = localPlayer
             if (fake != null && fakePlayer) {
-                updateServerPosition()
                 val partialTick = mc.deltaTracker.getGameTimeDeltaPartialTick(true)
                 val lerpX = prevServerX + (serverX - prevServerX) * partialTick
                 val lerpY = prevServerY + (serverY - prevServerY) * partialTick
@@ -127,6 +123,11 @@ object Blink : Module("Blink", Category.MOVEMENT) {
 
         // 周期空包：由模块决定释放多少，避免 Manager 默认 FLUSH 清空整个队列
         if (event.packet == null) {
+            if (!autoRelease) {
+                event.vote(Action.PASS)
+                return
+            }
+
             val queued = queuedMovePackets()
 
             if (queued > tick) {
@@ -170,40 +171,13 @@ object Blink : Module("Blink", Category.MOVEMENT) {
         prevServerYHeadRot = serverYHeadRot
     }
 
-    /** 通过累积队列中所有移动包，重算服务端看到的位置与朝向。 */
-    private fun NonNullContext.updateServerPosition() {
-        prevServerX = serverX
-        prevServerY = serverY
-        prevServerZ = serverZ
-        prevServerYRot = serverYRot
-        prevServerXRot = serverXRot
-        prevServerYHeadRot = serverYHeadRot
-
-        var x = player.x
-        var y = player.y
-        var z = player.z
-        var yRot = player.yRot
-        var xRot = player.xRot
-        var yHeadRot = player.yHeadRot
-
-        for (snapshot in ServerboundPacketManager.packetQueue) {
-            val move = snapshot.packet as? ServerboundMovePlayerPacket ?: continue
-            x = move.getX(x)
-            y = move.getY(y)
-            z = move.getZ(z)
-            yRot = move.getYRot(yRot)
-            xRot = move.getXRot(xRot)
-            if (move.hasRotation()) {
-                yHeadRot = move.getYRot(yHeadRot)
-            }
+    /** 找一个未被占用的负数实体 id，避免和本地玩家/NPC 冲突。 */
+    private fun NonNullContext.findFreeEntityId(): Int {
+        var id = -1
+        while (level.getEntity(id) != null) {
+            id--
         }
-
-        serverX = x
-        serverY = y
-        serverZ = z
-        serverYRot = yRot
-        serverXRot = xRot
-        serverYHeadRot = yHeadRot
+        return id
     }
 
     private fun queuedMovePackets(): Int {
@@ -215,7 +189,6 @@ object Blink : Module("Blink", Category.MOVEMENT) {
     }
 
     private fun NonNullContext.releaseTick() {
-        updateServerPosition()
         ServerboundPacketManager.flush(1)
     }
 

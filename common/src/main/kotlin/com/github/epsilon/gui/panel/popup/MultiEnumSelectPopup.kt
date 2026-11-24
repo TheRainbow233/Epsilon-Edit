@@ -16,7 +16,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor
 import java.awt.Color
 
 /**
- * 多选枚举设置的面板弹窗：每项一个开关，勾选后保持打开，便于连续调整。
+ * 多选枚举设置的面板弹窗：点击整行切换选中状态，选中后保持打开，便于连续调整。
  */
 class MultiEnumSelectPopup(
     bounds: UiRect,
@@ -145,19 +145,6 @@ class MultiEnumSelectPopup(
                         Text(
                             setting.getTranslatedValueUnchecked(mode),
                             localItemBounds.x + 10.0f, textY, textScale, textColor
-                        )
-
-                        val toggleWidth = 20.0f
-                        val toggleHeight = 10.0f
-                        Toggle(
-                            UiRect(
-                                localItemBounds.right() - toggleWidth - 8.0f,
-                                localItemBounds.y + (localItemBounds.height - toggleHeight) * 0.5f,
-                                toggleWidth,
-                                toggleHeight
-                            ),
-                            if (selected) 1.0f else 0.0f,
-                            if (hovered) 1.0f else 0.0f
                         )
                     }
                 }

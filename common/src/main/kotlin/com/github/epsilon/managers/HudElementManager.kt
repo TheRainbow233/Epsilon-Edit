@@ -33,6 +33,7 @@ object HudElementManager : AlwaysListening {
         addElement(Notifications)
         addElement(PlayerInfo)
         addElement(ScaffoldBlock)
+        addElement(CustomScoreboard)
         addElement(TargetHUD)
         addElement(VictoryBanner)
         addElement(Watermark)

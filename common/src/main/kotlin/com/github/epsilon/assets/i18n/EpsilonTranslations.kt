@@ -191,6 +191,8 @@ object EpsilonTranslations {
         Notifications.TRANSACTION_COUNT_TOO_HIGH,
         Notifications.SCAFFOLD_FLYING_WARNING,
         Notifications.SCAFFOLD_TOGGLE_ON_TELEPORT,
+        Notifications.SCAFFOLD_NO_BLOCKS,
+        Notifications.ANTIVOID_RESCUE,
         Notifications.SERVERBOUND_PACKET_FLUSH_FAILED,
         Notifications.CLIENTBOUND_PACKET_FLUSH_FAILED,
         Notifications.KEY_FRIEND_ADDED,
@@ -431,6 +433,8 @@ object EpsilonTranslations {
         val TRANSACTION_COUNT_TOO_HIGH: TranslateComponent = create("notification", "transaction_count_too_high")
         val SCAFFOLD_FLYING_WARNING: TranslateComponent = create("notification", "scaffold_flying_warning")
         val SCAFFOLD_TOGGLE_ON_TELEPORT: TranslateComponent = create("notification", "scaffold_toggle_on_teleport")
+        val SCAFFOLD_NO_BLOCKS: TranslateComponent = create("notification", "scaffold_no_blocks")
+        val ANTIVOID_RESCUE: TranslateComponent = create("notification", "antivoid_rescue")
         val SERVERBOUND_PACKET_FLUSH_FAILED: TranslateComponent =
             create("notification", "serverbound_packet_flush_failed")
         val CLIENTBOUND_PACKET_FLUSH_FAILED: TranslateComponent =

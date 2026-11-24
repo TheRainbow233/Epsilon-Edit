@@ -84,6 +84,7 @@ object ModuleManager : AlwaysListening {
         addModule(TriggerBot)
 
         // Player
+        addModule(AntiVoid)
         addModule(AutoArmor)
         addModule(AutoFirework)
         addModule(AutoKouZi)
@@ -116,6 +117,7 @@ object ModuleManager : AlwaysListening {
         addModule(ElytraGrimAccelerate)
         addModule(Dolphin)
         addModule(AutoSprint)
+        addModule(Bhop)
         addModule(Blink)
         addModule(FastWeb)
         addModule(Eagle)
@@ -144,7 +146,7 @@ object ModuleManager : AlwaysListening {
         addModule(AntiAlias)
         addModule(AspectRatio)
         addModule(BetterChat)
-        addModule(BetterScoreboard)
+        //addModule(BetterScoreboard)
         addModule(BlockESP)
         addModule(BlockHighlight)
         addModule(CameraClip)
