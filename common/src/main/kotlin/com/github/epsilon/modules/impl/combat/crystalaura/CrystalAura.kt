@@ -16,6 +16,7 @@ import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.Rotation
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
 import com.github.epsilon.kernel.gameplay.rotation.RotationUtils.calculate
+import com.github.epsilon.kernel.jvm.hooks.ProtocolCompat
 import com.github.epsilon.kernel.jvm.NonNullContext
 import com.github.epsilon.kernel.jvm.runSafe
 import com.github.epsilon.kernel.render.WorldToScreen
@@ -641,8 +642,15 @@ object CrystalAura : Module("Crystal Aura", Category.COMBAT) {
         if (packetRotation()) rotatePacket(crystalAim(crystal.boundingBox))
         val action = {
             // 只发送攻击，不调用本地 player.attack；原版不会提前将水晶标记死亡。
+            val hand = crystalHand() ?: InteractionHand.MAIN_HAND
+            // 1.8：Grim PacketOrderB 要求先挥手再攻击；1.9+：攻击后再挥手。
+            if (ProtocolCompat.isOlderThanOrEqual1_8) {
+                breakSwing.attackSwing(hand)
+            }
             connection.send(ServerboundAttackPacket(crystal.id))
-            breakSwing.attackSwing(crystalHand() ?: InteractionHand.MAIN_HAND)
+            if (!ProtocolCompat.isOlderThanOrEqual1_8) {
+                breakSwing.attackSwing(hand)
+            }
             timing.recordAttack(crystal.id)
             true
         }

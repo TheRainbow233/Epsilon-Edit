@@ -7,6 +7,7 @@ import com.github.epsilon.events.impl.KeyboardInputEvent
 import com.github.epsilon.events.impl.PacketEvent
 import com.github.epsilon.events.impl.PlayerTickEvent
 import com.github.epsilon.kernel.gameplay.player.PlayerState.isInBlock
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.Rotation
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
@@ -117,8 +118,7 @@ object Velocity : Module("Velocity", Category.MOVEMENT) {
             if (attackQueue >= 1) {
                 val hitResult = RotationManager.getHitResult()
                 if (hitResult is EntityHitResult && hitResult.entity is Player && hitResult.entity.isAlive) {
-                    gameMode.attack(player, hitResult.entity)
-                    SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
+                    attackEntity(hitResult.entity, SwingMode.of(swingHand))
                 }
                 attackQueue--
             }

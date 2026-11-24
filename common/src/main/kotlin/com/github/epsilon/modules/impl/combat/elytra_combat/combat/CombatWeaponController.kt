@@ -8,6 +8,7 @@ import com.github.epsilon.kernel.gameplay.inventory.InvUtils.invSwapBack
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swap
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swapBack
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.jvm.NonNullContext
 import com.github.epsilon.kernel.jvm.runSafe
@@ -103,8 +104,7 @@ object CombatWeaponController {
         ) ?: return false
         try {
             // 只调用原生 attack，攻击距离使用本地实体交互 reach。
-            gameMode.attack(player, target)
-            SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
+            attackEntity(target, SwingMode.of(swingHand))
             return true
         } finally {
             selection.restore()

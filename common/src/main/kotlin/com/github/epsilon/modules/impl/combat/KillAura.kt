@@ -4,6 +4,7 @@ import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.ClientTickEvent
 import com.github.epsilon.events.impl.PlayerTickEvent
 import com.github.epsilon.events.impl.Render3DEvent
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.PlayerState.isEating
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.RaycastUtils.raycast
@@ -29,7 +30,6 @@ import com.github.epsilon.modules.impl.movement.Scaffold
 import com.github.epsilon.modules.impl.movement.Velocity
 import com.github.epsilon.modules.impl.render.AntiAlias
 import net.minecraft.util.Mth
-import net.minecraft.world.InteractionHand
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.LivingEntity
 import net.minecraft.world.entity.player.Player
@@ -365,12 +365,9 @@ object KillAura : Module("Kill Aura", Category.COMBAT) {
                 if (pauseOnEat && isEating() || NoSlowdown.isWorking()) return@safeEventHandler
 
                 val entity = getAttackEntity() ?: return@safeEventHandler
-
-                gameMode.attack(player, entity)
+                attackEntity(entity, SwingMode.of(swingHand))
 
                 if (espMode == ESPMode.Deobf) DeobfESP.markHit(entity)
-
-                SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
             }
         }
 

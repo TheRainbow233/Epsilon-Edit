@@ -9,6 +9,7 @@ import com.github.epsilon.kernel.gameplay.inventory.InvUtils.invSwap
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.invSwapBack
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swap
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.swapBack
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
 import com.github.epsilon.kernel.gameplay.rotation.RotationUtils.getEyeDistanceToEntity
@@ -198,8 +199,7 @@ object MaceAura : Module("Mace Aura", Category.COMBAT) {
     }
 
     private fun NonNullContext.attack(currentTarget: LivingEntity) {
-        gameMode.attack(player, currentTarget)
-        SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
+        attackEntity(currentTarget, SwingMode.of(swingHand))
     }
 
 }

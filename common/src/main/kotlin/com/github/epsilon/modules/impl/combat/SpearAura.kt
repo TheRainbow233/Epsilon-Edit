@@ -8,6 +8,7 @@ import com.github.epsilon.kernel.gameplay.inventory.FindItemResult
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.find
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.invSwap
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.invSwapBack
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.RaycastUtils.raycast
 import com.github.epsilon.kernel.gameplay.rotation.Rotation
@@ -461,8 +462,7 @@ object SpearAura : Module("Spear Aura", Category.COMBAT) {
     }
 
     private fun NonNullContext.attackEntity(entity: Entity) {
-        gameMode.attack(player, entity)
-        SwingMode.Both.attackSwing(InteractionHand.MAIN_HAND)
+        attackEntity(entity, SwingMode.Both)
     }
 
     /**

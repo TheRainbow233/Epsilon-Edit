@@ -40,7 +40,10 @@ object ViaFabricPlusHooks {
         val target = backend?.targetVersion ?: return@query null
         val versions = type("com.viaversion.viaversion.api.protocol.version.ProtocolVersion")
             .getMethod("getIncludedVersions").invoke(target) as Collection<*>
-        versions.minOfOrNull { SupportVersion.parse(it as String) }
+        // 某些协议会带 snapshot/pre 名称；跳过无法解析的项，避免整个查询失败后回退。
+        versions.mapNotNull { value ->
+            (value as? String)?.let { name -> runCatching { SupportVersion.parse(name) }.getOrNull() }
+        }.minOrNull()
     }
 
     val supportsEndTick: Boolean
@@ -145,12 +148,15 @@ object ViaFabricPlusHooks {
         }
     }
 
-    private class Backend(private val api: Class<*>, private val instance: Any?) {
+    private class Backend(
+        private val targetVersionProvider: () -> Any,
+        private val connectionProvider: () -> Any?,
+    ) {
         val targetVersion: Any
-            get() = checkNotNull(api.getMethod("getTargetVersion").invoke(instance))
+            get() = targetVersionProvider()
 
         val connection: Any
-            get() = checkNotNull(api.getMethod("getPlayNetworkUserConnection").invoke(instance)) {
+            get() = checkNotNull(connectionProvider()) {
                 "Via has no active play connection"
             }
     }
@@ -158,13 +164,42 @@ object ViaFabricPlusHooks {
     // 每次获取当前实例，避免在 Via 尚未初始化时永久缓存为不可用。
     private val backend: Backend?
         get() {
-            val modern = optionalType("com.viaversion.viafabricplus.ViaFabricPlus")
-            if (modern != null) {
-                val instance = modern.getMethod("getImpl").invoke(null) ?: return null
-                return Backend(type("com.viaversion.viafabricplus.api.ViaFabricPlusBase"), instance)
+            // ViaFabricPlus 5.x：ViaFabricPlus.api() -> ViaFabricPlusAPI.targetVersion() / userConnection()
+            val viaFabricPlus = optionalType("com.viaversion.viafabricplus.ViaFabricPlus")
+            if (viaFabricPlus != null) {
+                val api = runCatching {
+                    viaFabricPlus.getMethod("api").invoke(null)
+                }.getOrNull()
+                if (api != null) {
+                    return Backend(
+                        targetVersionProvider = {
+                            api.javaClass.getMethod("targetVersion").invoke(api)
+                        },
+                        connectionProvider = {
+                            api.javaClass.getMethod("userConnection").invoke(api)
+                        }
+                    )
+                }
             }
-            return optionalType("de.florianmichael.viafabricplus.protocoltranslator.ProtocolTranslator")
-                ?.let { Backend(it, null) }
+
+            // 旧版 ViaFabricPlus：ViaFabricPlus.getImpl() -> ViaFabricPlusBase.getTargetVersion()
+            val impl = viaFabricPlus?.let { type ->
+                runCatching { type.getMethod("getImpl").invoke(null) }.getOrNull()
+            }
+            if (impl != null) {
+                return Backend(
+                    targetVersionProvider = { impl.javaClass.getMethod("getTargetVersion").invoke(impl) },
+                    connectionProvider = { impl.javaClass.getMethod("getPlayNetworkUserConnection").invoke(impl) }
+                )
+            }
+
+            // 更老的 ProtocolTranslator 入口
+            val translator = optionalType("de.florianmichael.viafabricplus.protocoltranslator.ProtocolTranslator")
+                ?: return null
+            return Backend(
+                targetVersionProvider = { translator.getMethod("getTargetVersion").invoke(null) },
+                connectionProvider = { translator.getMethod("getPlayNetworkUserConnection").invoke(null) }
+            )
         }
 
     private fun type(name: String): Class<*> = classes.find(name) ?: throw ClassNotFoundException(name)

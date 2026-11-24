@@ -16,6 +16,7 @@ import com.github.epsilon.kernel.gameplay.inventory.FindItemResult
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.find
 import com.github.epsilon.kernel.gameplay.inventory.InvUtils.findInHotbar
 import com.github.epsilon.kernel.gameplay.player.PlayerState.isEating
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.RaycastUtils.raycast
 import com.github.epsilon.kernel.gameplay.rotation.Rotation
@@ -472,8 +473,7 @@ abstract class TrapBase(
                 breakingCrystal = target
                 val hit = raycast(RotationManager.getRotation(), getBreakRange())
                 if (hit !is EntityHitResult || hit.entity !== target) return true
-                gameMode.attack(player, target)
-                SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
+                attackEntity(target, SwingMode.of(swingHand))
                 breakTimer.reset()
             }
         }

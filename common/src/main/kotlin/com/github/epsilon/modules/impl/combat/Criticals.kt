@@ -6,6 +6,7 @@ import com.github.epsilon.events.impl.ClientTickEvent
 import com.github.epsilon.events.impl.KeyboardInputEvent
 import com.github.epsilon.modules.Category
 import com.github.epsilon.modules.Module
+import com.github.epsilon.kernel.jvm.hooks.ProtocolCompat
 import com.github.epsilon.modules.impl.movement.Velocity
 import net.minecraft.client.player.LocalPlayer
 
@@ -30,6 +31,12 @@ object Criticals : Module("Criticals", Category.COMBAT) {
         }
 
         safeEventHandler<ClientTickEvent.Pre>(EventPriority.LOWEST) {
+            // 1.8 的暴击不要求 !isSprinting，取消冲刺只会白丢击退。
+            if (ProtocolCompat.isOlderThanOrEqual1_8) {
+                stopSprinting = false
+                return@safeEventHandler
+            }
+
             stopSprinting = fallTicks in 1..<3 &&
                     player.isSprinting &&
                     KillAura.target != null &&

@@ -10,6 +10,8 @@ import com.github.epsilon.kernel.gameplay.rotation.Rotation
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
 import com.github.epsilon.kernel.gameplay.rotation.RotationUtils
 import com.github.epsilon.kernel.jvm.NonNullContext
+import com.github.epsilon.kernel.jvm.hooks.ProtocolCompat
+import com.github.epsilon.kernel.network.NetworkUtils
 import com.github.epsilon.modules.impl.ClientSetting
 import com.github.epsilon.modules.impl.movement.MovementFix
 import com.github.epsilon.modules.impl.render.FreeCamera
@@ -45,6 +47,9 @@ object RotationManager : AlwaysListening {
     private var rotationHitResult: HitResult? = null
     private var calculatingHitResult = false
     private var useItemRotation: Rotation? = null
+    private val pendingUseItemPackets = ArrayList<ServerboundUseItemPacket>()
+    private var suppressRotationOnce = false
+    private var suppressRotationRequest: Rotation? = null
 
     private var priority = 0
     private var rotationRequest: Rotation? = null
@@ -99,6 +104,16 @@ object RotationManager : AlwaysListening {
             }
         }
 
+        safeEventHandler<PlayerTickEvent.Pre>(EventPriority.HIGHEST, alwaysListening = true) {
+            if (pendingUseItemPackets.isEmpty()) return@safeEventHandler
+            for (packet in pendingUseItemPackets) {
+                NetworkUtils.sendPacketNoEvent(packet)
+            }
+            pendingUseItemPackets.clear()
+            suppressRotationOnce = true
+            suppressRotationRequest = rotationRequest
+        }
+
         handler<SendPositionEvent>(EventPriority.LOWEST, alwaysListening = true) { event ->
             val player = mc.player
             if (player == null) {
@@ -110,7 +125,29 @@ object RotationManager : AlwaysListening {
                 rotationHitResult = null
                 calculatingHitResult = false
                 useItemRotation = null
+                pendingUseItemPackets.clear()
+                suppressRotationOnce = false
+                suppressRotationRequest = null
             } else {
+                if (suppressRotationOnce) {
+                    suppressRotationOnce = false
+                    if (rotationRequest === suppressRotationRequest) {
+                        event.yaw = event.lastSentYaw
+                        event.pitch = event.lastSentPitch
+                        active = false
+                        priority = 0
+                        targetRotations = null
+                        rotationRequest = null
+                        raytrace = null
+                        smoothed = false
+                        useItemRotation = null
+                        lastRotations = Rotation(player.yRot, player.xRot)
+                        lastAnimationRotation = animationRotation
+                        animationRotation = Rotation(event.yaw, event.pitch)
+                        return@handler
+                    }
+                }
+
                 if (active) {
                     // Item use is sent before LocalPlayer ticks; keep both packets on the same server rotation.
                     val useItemRotation = useItemRotation
@@ -125,6 +162,12 @@ object RotationManager : AlwaysListening {
                     if (!yaw.isNaN() && !pitch.isNaN()) {
                         event.yaw = yaw
                         event.pitch = pitch
+                    }
+
+                    // pre-1.21 的 useItem 包没有旋转字段：本 tick 的 useItem 被推迟到
+                    // sendPosition 之后，这里必须强制发一个带目标旋转的移动包。
+                    if (pendingUseItemPackets.isNotEmpty()) {
+                        event.forceRotation = true
                     }
 
                     if (abs((rotations.yaw - player.yRot) % 360) < 1 &&
@@ -204,12 +247,15 @@ object RotationManager : AlwaysListening {
             val packet = event.packet
             if (packet is ServerboundClientTickEndPacket) {
                 useItemRotation = null
-            } else if (hasActiveRotation() && packet is ServerboundUseItemPacket) {
+            } else if (!event.isCancelled && hasActiveRotation() && packet is ServerboundUseItemPacket) {
                 val yaw = rotations.yaw
                 val pitch = rotations.pitch.coerceIn(-90.0f, 90.0f)
                 if (!yaw.isNaN() && !pitch.isNaN()) {
                     useItemRotation = Rotation(yaw, pitch)
-                    if (packet.yRot() != yaw || packet.xRot() != pitch) {
+                    if (ProtocolCompat.isOlderThan1_21) {
+                        event.cancel()
+                        pendingUseItemPackets.add(packet)
+                    } else if (packet.yRot() != yaw || packet.xRot() != pitch) {
                         event.packet = ServerboundUseItemPacket(
                             packet.hand(),
                             packet.sequence(),

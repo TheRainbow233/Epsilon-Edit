@@ -12,6 +12,7 @@ import com.github.epsilon.kernel.gameplay.combat.CrystalDamage.damage
 import com.github.epsilon.kernel.gameplay.combat.CrystalDamage.snapshot
 import com.github.epsilon.kernel.gameplay.grimac.C03Interact.placeBlock
 import com.github.epsilon.kernel.gameplay.inventory.ContainerClicks.swap
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.Rotation
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
@@ -370,8 +371,7 @@ object AnchorAura : Module("Anchor Aura", Category.COMBAT) {
                 for (crystal in level.getEntities(null, AABB(pos)).filterIsInstance<EndCrystal>()) {
                     val aim = nearest(player.eyePosition, crystal.boundingBox)
                     if (player.eyePosition.distanceTo(aim) <= breakRange && aimAt(aim)) {
-                        gameMode.attack(player, crystal)
-                        SwingMode.Both.attackSwing(InteractionHand.MAIN_HAND)
+                        attackEntity(crystal, SwingMode.Both)
                     }
                 }
             }

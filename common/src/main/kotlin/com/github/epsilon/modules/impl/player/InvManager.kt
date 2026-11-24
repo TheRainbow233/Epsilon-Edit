@@ -30,6 +30,7 @@ import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getWorstBlock
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.getWorstProjectile
 import com.github.epsilon.kernel.gameplay.inventory.NavenInvUtils.shouldDisableFeatures
 import com.github.epsilon.kernel.gameplay.player.PlayerState.isEating
+import com.github.epsilon.kernel.jvm.hooks.ProtocolCompat
 import com.github.epsilon.kernel.jvm.NonNullContext
 import com.github.epsilon.kernel.jvm.runSafe
 import com.github.epsilon.kernel.math.MathUtils
@@ -569,6 +570,8 @@ object InvManager : Module("Inv Manager", Category.PLAYER) {
     }
 
     private fun NonNullContext.swapOffHand(slot: Int) {
+        // 1.15.2 及以下容器里不能用副手作为 swap 目标。
+        if (ProtocolCompat.isOlderThanOrEqual1_15_2) return
         if (slot < 9) {
             swap(slot + 36, 40)
         } else {

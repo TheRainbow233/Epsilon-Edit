@@ -2,6 +2,7 @@ package com.github.epsilon.modules.impl.combat
 
 import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.PlayerTickEvent
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntities
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.math.MathUtils
 import com.github.epsilon.managers.target.TargetManager
@@ -61,13 +62,9 @@ object MultiAura : Module("Multi Aura", Category.COMBAT) {
             if (targets.isEmpty()) return@safeEventHandler
 
             while (attacks >= 1.0) {
-                for (target in targets) {
-                    gameMode.attack(player, target)
-                }
+                attackEntities(targets, SwingMode.of(swingHand))
                 attacks -= 1.0
             }
-
-            SwingMode.of(swingHand).attackSwing(InteractionHand.MAIN_HAND)
         }
     }
 

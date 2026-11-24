@@ -3,6 +3,7 @@ package com.github.epsilon.modules.impl.combat
 import com.github.epsilon.events.api.safeEventHandler
 import com.github.epsilon.events.impl.PlayerTickEvent
 import com.github.epsilon.events.impl.SwingHandEvent
+import com.github.epsilon.kernel.gameplay.combat.AttackUtils.attackEntity
 import com.github.epsilon.kernel.gameplay.player.SwingMode
 import com.github.epsilon.kernel.gameplay.rotation.RotationPriority
 import com.github.epsilon.kernel.gameplay.rotation.RotationUtils.calculate
@@ -48,8 +49,7 @@ object SilentAim : Module("Silent Aim", Category.COMBAT) {
 
             val hitResult = RotationManager.getHitResult()
             if (hitResult != null && hitResult.type == HitResult.Type.ENTITY) {
-                gameMode.attack(player, currentTarget)
-                SwingMode.Both.attackSwing(InteractionHand.MAIN_HAND)
+                attackEntity(currentTarget, SwingMode.Both)
                 redirecting = false
             }
         }
